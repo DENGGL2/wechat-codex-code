@@ -130,13 +130,6 @@ The daemon long-polls WeChat for new messages, forwards them to local Codex, and
 
 ---
 
-## Roadmap
-
-- **Message queue optimization** — Consecutive messages can produce mixed-up replies. Working on a better queuing strategy. Ideas welcome.
-- **Resume desktop session** — Chat on your computer for a while, then continue from WeChat on the go. The bridge is being improved to keep the same workspace and task context as much as possible.
-
----
-
 ## Prerequisites
 
 - Node.js >= 18
