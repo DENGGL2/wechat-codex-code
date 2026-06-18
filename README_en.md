@@ -88,7 +88,8 @@ Send these directly in the WeChat chat:
 | `/help` | Show available commands |
 | `/clear` | Clear current session, start fresh |
 | `/stop` | Stop current task |
-| `/provider codex` | Switch to the Codex backend |
+| `/provider <codex\|claude>` | Switch AI backend. Codex is the default; the original Claude path is preserved. |
+| `/model <name>` | Switch the model used by the current backend |
 | `/prompt <text>` | Set a system prompt (e.g. "reply in Chinese") |
 | `/cwd <path>` | Switch working directory |
 | `/skills` | List installed Skills |
@@ -101,13 +102,14 @@ Send these directly in the WeChat chat:
 
 ## Codex Support
 
-Switch to the Codex backend from WeChat:
+This fork keeps the original Claude path and adds a Codex path. Switch from WeChat with:
 
 ```bash
 /provider codex
+/provider claude
 ```
 
-Codex mode calls the local Codex CLI. You can also dictate or type text in WeChat and paste it into the foreground Codex input box:
+Codex mode calls the local Codex CLI; Claude mode keeps using the original local Claude CLI. You can also dictate or type text in WeChat and paste it into the foreground Codex input box:
 
 ```text
 帮我输入 text to paste into Codex

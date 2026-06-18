@@ -24,7 +24,7 @@
     "@types/qrcode-terminal": "^0.12.0",
     "typescript": "^5.7.0"
   },
-  "keywords": ["wechat", "codex", "bridge", "chat", "skill"],
+  "keywords": ["wechat", "codex", "claude-code", "claude", "bridge", "chat", "skill"],
   "author": "DENGGL2",
   "license": "MIT",
   "repository": {

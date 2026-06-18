@@ -81,7 +81,8 @@ npm run daemon -- logs     # 查看日志
 | `/help` | 显示帮助 |
 | `/clear` | 清除当前会话，开始新对话 |
 | `/stop` | 停止当前任务 |
-| `/provider codex` | 切换到 Codex 后端 |
+| `/provider <codex\|claude>` | 切换 AI 后端，默认 Codex，保留原 Claude 通道 |
+| `/model <名称>` | 切换当前后端使用的模型 |
 | `/prompt <内容>` | 设置系统提示词（如"用中文回答"） |
 | `/cwd <路径>` | 切换工作目录 |
 | `/skills` | 查看已安装的 Skill |
@@ -94,13 +95,14 @@ npm run daemon -- logs     # 查看日志
 
 ## Codex 功能
 
-切换到 Codex 后端：
+本 fork 保留原项目的 Claude 通道，并新增 Codex 通道。切换方式：
 
 ```bash
 /provider codex
+/provider claude
 ```
 
-Codex 模式会调用本机 Codex CLI。微信里也可以把文字流转到当前前台 Codex 输入框：
+Codex 模式会调用本机 Codex CLI；Claude 模式继续走原项目的本机 Claude CLI。微信里也可以把文字流转到当前前台 Codex 输入框：
 
 ```text
 帮我输入这里是要填入 Codex 输入框的内容

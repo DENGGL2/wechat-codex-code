@@ -105,7 +105,7 @@ cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
   /help    显示帮助
   /clear   清除当前会话，开始新对话
   /status  查看当前会话状态
-  /provider 切换到 Codex 后端
+  /provider 切换 codex/claude 后端
   /prompt  设置系统提示词
   /cwd     切换工作目录
   /skills  查看已安装的 skill
