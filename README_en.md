@@ -1,18 +1,17 @@
-# WeChat Claude Code Bridge
+# WeChat Codex Bridge
 
 <p align="center">
-  <strong>Chat with Claude Code in WeChat, just like texting a friend</strong>
+  <strong>Chat with Codex from WeChat, including text, voice, images, files, foreground input, and completion notifications</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Wechat-ggGitHub/wechat-claude-code/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
-  <a href="https://skills.sh/Wechat-ggGitHub/wechat-claude-code"><img src="https://img.shields.io/badge/skills.sh-view_page-blue?style=flat-square" alt="skills.sh"></a>
+  <a href="https://github.com/DENGGL2/wechat-codex-code/blob/codex-wechat-bridge/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-中文-lightgrey?style=flat-square" alt="中文"></a>
 </p>
 
 > This project is based on [Wechat-ggGitHub/wechat-claude-code](https://github.com/Wechat-ggGitHub/wechat-claude-code) and follows the original MIT License.
 
-Scan a QR code to bind your WeChat, and a new "friend" appears in your contacts. Send it a message — it gets forwarded to Claude Code running on your computer, and the reply streams back to WeChat in real time. Supports text, images, voice, and files.
+Scan a QR code to bind your WeChat, then send text, voice, images, and files to Codex running on your computer. Replies stream back to WeChat, and the bridge also supports foreground Codex input, completion notifications, and confirmation before higher-risk operations.
 
 ---
 
@@ -22,9 +21,9 @@ Scan a QR code to bind your WeChat, and a new "friend" appears in your contacts.
 |---|---|
 | **Scan and go** | No account signup, no server deployment. Scan a QR code and you're done in a minute. All data stays on your machine. |
 | **Clean messages** | Only key info gets pushed — progress, results, key decisions. Tool calls and intermediate noise are filtered out automatically. |
-| **"Typing..." indicator** | WeChat shows a typing indicator while Claude is working, so you always know it's on it. |
-| **Consistent experience** | Mobile and desktop Claude Code behave identically — same orchestration, same output. Not two disconnected AIs. |
-| **Two-way files** | Send images, Word docs, PDFs for Claude to analyze. Files Claude generates get pushed directly to WeChat — no need to go back to your computer. |
+| **"Typing..." indicator** | WeChat shows a typing indicator while Codex is working, so you always know it's on it. |
+| **Consistent experience** | Mobile and desktop Codex share the same task context and feedback rules as much as possible. Not two disconnected AIs. |
+| **Two-way files** | Send images, Word docs, PDFs for Codex to analyze. Files Codex generates get pushed directly to WeChat — no need to go back to your computer. |
 | **Timeout reassurance** | Task taking longer than 5 minutes? You'll get an automatic message letting you know it's still working. |
 
 ---
@@ -34,7 +33,7 @@ Scan a QR code to bind your WeChat, and a new "friend" appears in your contacts.
 **Option 1: skills CLI (recommended)**
 
 ```bash
-npx skills add Wechat-ggGitHub/wechat-claude-code
+npx skills add DENGGL2/wechat-codex-code
 ```
 
 The first time you trigger the skill, it will automatically clone the source and install dependencies.
@@ -42,8 +41,8 @@ The first time you trigger the skill, it will automatically clone the source and
 **Option 2: Manual clone**
 
 ```bash
-git clone https://github.com/Wechat-ggGitHub/wechat-claude-code.git ~/.claude/skills/wechat-claude-code
-cd ~/.claude/skills/wechat-claude-code && npm install
+git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
+cd ~/.claude/skills/wechat-codex-code && npm install
 ```
 
 ## Quick Start
@@ -51,7 +50,7 @@ cd ~/.claude/skills/wechat-claude-code && npm install
 ### 1. Bind WeChat
 
 ```bash
-cd ~/.claude/skills/wechat-claude-code
+cd ~/.claude/skills/wechat-codex-code
 npm run setup
 ```
 
@@ -124,10 +123,10 @@ This only fills the input box and does not auto-send. On Windows, the bridge can
 ## How It Works
 
 ```
-WeChat (phone) ←→ ilink Bot API ←→ Node.js daemon ←→ Claude Code CLI (local)
+WeChat (phone) ←→ ilink Bot API ←→ Node.js daemon ←→ Codex CLI / Codex desktop (local)
 ```
 
-The daemon long-polls WeChat for new messages, forwards them to the local `claude` CLI, and streams replies back to WeChat. Everything runs on your own machine.
+The daemon long-polls WeChat for new messages, forwards them to local Codex, and streams replies back to WeChat. Everything runs on your own machine.
 
 ---
 
@@ -135,18 +134,18 @@ The daemon long-polls WeChat for new messages, forwards them to the local `claud
 
 - **Message queue optimization** — Consecutive messages can produce mixed-up replies. Working on a better queuing strategy. Ideas welcome.
 - **Prevent sleep** — Use macOS `caffeinate` to keep the system awake, so closing the lid doesn't interrupt the service.
-- **Resume desktop session** — Chat on your computer for a while, then continue the same session from WeChat on the go. Same workspace, same context.
+- **Resume desktop session** — Chat on your computer for a while, then continue from WeChat on the go. The bridge is being improved to keep the same workspace and task context as much as possible.
 
 ---
 
 ## Prerequisites
 
 - Node.js >= 18
-- macOS or Linux
+- Windows, macOS, or Linux
 - A personal WeChat account
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed and authenticated
+- Codex CLI or Codex desktop installed and authenticated
 
-> **Note:** Claude Code supports third-party API providers (OpenRouter, AWS Bedrock, etc.) — set `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY` accordingly.
+> **Note:** If you keep the Claude backend enabled too, switch providers from WeChat with `/provider codex|claude`.
 
 ## Data Directory
 

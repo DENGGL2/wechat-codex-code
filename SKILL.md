@@ -1,25 +1,25 @@
 ---
-name: wechat-claude-code
-description: 微信消息桥接 - 在微信中与 Claude Code 聊天。支持文字对话、图片识别、实时进度推送、斜杠命令。
+name: wechat-codex-code
+description: 微信消息桥接 - 在微信中与本机 Codex 对话。支持文字、语音、图片、文件、前台输入框填入、进度推送和斜杠命令。
 ---
 
-# WeChat Claude Code Bridge
+# WeChat Codex Bridge
 
-通过个人微信与本地 Claude Code 进行对话。
+通过个人微信与本地 Codex 进行对话，也可把微信口述内容填入当前前台 Codex 输入框。
 
 ## 前置条件
 
 - Node.js >= 18
 - macOS（daemon 使用 launchd 管理）
 - 个人微信账号（需扫码绑定）
-- 已安装 Claude Code（`@anthropic-ai/claude-agent-sdk`）
+- 已安装 Codex CLI 或 Codex 桌面端
 
 ## 安装
 
 **方式一：通过 skills CLI（推荐）**
 
 ```bash
-npx skills add Wechat-ggGitHub/wechat-claude-code
+npx skills add DENGGL2/wechat-codex-code
 ```
 
 首次触发时 skill 会自动克隆完整项目源码并安装依赖。
@@ -27,8 +27,8 @@ npx skills add Wechat-ggGitHub/wechat-claude-code
 **方式二：手动克隆**
 
 ```bash
-git clone https://github.com/Wechat-ggGitHub/wechat-claude-code.git ~/.claude/skills/wechat-claude-code
-cd ~/.claude/skills/wechat-claude-code && npm install
+git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
+cd ~/.claude/skills/wechat-codex-code && npm install
 ```
 
 ## 触发场景
@@ -44,22 +44,23 @@ cd ~/.claude/skills/wechat-claude-code && npm install
 ### 第 1 步：检查项目是否完整安装
 
 ```bash
-test -f ~/.claude/skills/wechat-claude-code/package.json && echo "source_ok" || echo "source_missing"
+test -f ~/.claude/skills/wechat-codex-code/package.json && echo "source_ok" || echo "source_missing"
 ```
 
-- 如果 `source_missing`：需要从 GitHub 克隆完整项目。执行：
+- 如果 `source_missing`：需要从 GitHub 克隆完整项目。建议重新执行手动安装：
   ```bash
-  git clone https://github.com/Wechat-ggGitHub/wechat-claude-code.git /tmp/wechat-claude-code-install && cp -r /tmp/wechat-claude-code-install/{src,scripts,*.ts,*.json,*.md,LICENSE} ~/.claude/skills/wechat-claude-code/ && rm -rf /tmp/wechat-claude-code-install
+  git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
+  cd ~/.claude/skills/wechat-codex-code && npm install
   ```
   然后继续检查依赖。
 
 - 如果 `source_ok`：继续检查依赖。
 
 ```bash
-cd ~/.claude/skills/wechat-claude-code && test -d node_modules && echo "deps_ok" || echo "deps_missing"
+cd ~/.claude/skills/wechat-codex-code && test -d node_modules && echo "deps_ok" || echo "deps_missing"
 ```
 
-- 如果 `deps_missing`：执行 `cd ~/.claude/skills/wechat-claude-code && npm install` 安装依赖，然后继续。
+- 如果 `deps_missing`：执行 `cd ~/.claude/skills/wechat-codex-code && npm install` 安装依赖，然后继续。
 - 如果 `deps_ok`：继续下一步。
 
 ### 第 2 步：检查是否已绑定微信账号
@@ -74,7 +75,7 @@ ls ~/.wechat-claude-code/accounts/*.json 2>/dev/null | head -1
 ### 第 3 步：检查 daemon 运行状态
 
 ```bash
-cd ~/.claude/skills/wechat-claude-code && npm run daemon -- status
+cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
 ```
 
 ### 第 4 步：根据状态展示信息
@@ -104,7 +105,7 @@ cd ~/.claude/skills/wechat-claude-code && npm run daemon -- status
   /help    显示帮助
   /clear   清除当前会话，开始新对话
   /status  查看当前会话状态
-  /model   切换 Claude 模型
+  /provider 切换 codex/claude 后端
   /prompt  设置系统提示词
   /cwd     切换工作目录
   /skills  查看已安装的 skill
@@ -114,7 +115,7 @@ cd ~/.claude/skills/wechat-claude-code && npm run daemon -- status
 
 ## 子命令参考
 
-所有命令的工作目录为 `~/.claude/skills/wechat-claude-code`。
+所有命令的工作目录为 `~/.claude/skills/wechat-codex-code`。
 
 | 命令 | 执行 | 说明 |
 |------|------|------|

@@ -1,7 +1,7 @@
 {
-  "name": "wechat-claude-code",
+  "name": "wechat-codex-code",
   "version": "1.0.0",
-  "description": "Chat with Claude Code from WeChat - a Claude Code Skill that bridges personal WeChat to local Claude Code",
+  "description": "Chat with Codex from WeChat - a local bridge for text, voice, images, files, foreground input, and completion notifications",
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -24,11 +24,11 @@
     "@types/qrcode-terminal": "^0.12.0",
     "typescript": "^5.7.0"
   },
-  "keywords": ["wechat", "claude-code", "claude", "bridge", "chat", "skill"],
-  "author": "Wechat-ggGitHub",
+  "keywords": ["wechat", "codex", "claude-code", "claude", "bridge", "chat", "skill"],
+  "author": "DENGGL2",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Wechat-ggGitHub/wechat-claude-code.git"
+    "url": "https://github.com/DENGGL2/wechat-codex-code.git"
   }
 }

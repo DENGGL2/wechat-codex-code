@@ -1,18 +1,17 @@
-# WeChat Claude Code Bridge
+# WeChat Codex Bridge
 
 <p align="center">
-  <strong>Chat with Claude Code in WeChat, just like texting a friend</strong>
+  <strong>Chat with Codex from WeChat, including text, voice, images, files, foreground input, and completion notifications</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Wechat-ggGitHub/wechat-claude-code/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
-  <a href="https://skills.sh/Wechat-ggGitHub/wechat-claude-code"><img src="https://img.shields.io/badge/skills.sh-view_page-blue?style=flat-square" alt="skills.sh"></a>
+  <a href="https://github.com/DENGGL2/wechat-codex-code/blob/codex-wechat-bridge/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
   <a href="README_en.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=flat-square" alt="English"></a>
 </p>
 
 > 本项目基于 [Wechat-ggGitHub/wechat-claude-code](https://github.com/Wechat-ggGitHub/wechat-claude-code) 修改，遵循原项目 MIT License。
 
-扫码绑定微信后，你的微信里会多出一个好友。给它发消息，消息会自动转发给你电脑上运行的 Claude Code，回复也会实时推送到微信。支持文字、图片、语音、文件的收发。
+扫码绑定微信后，你可以通过微信把文字、语音、图片、文件转给本机 Codex 处理，结果会回到微信。也支持把微信口述内容填入当前前台 Codex 输入框、任务完成后推送简要结果，以及在高风险操作前等待确认。
 
 <img width="3018" height="1216" alt="ScreenShot_2026-06-10_211251_410" src="https://github.com/user-attachments/assets/2ba4c53b-9c63-4ffd-bd0a-71935a6eabec" />
 
@@ -21,9 +20,9 @@
 |---|---|
 | **扫码即用** | 不用注册账号，不用部署服务器。微信扫码绑定，一分钟搞定。数据全在本地，隐私有保障。 |
 | **消息不刷屏** | 只推送核心信息——进度、结果、关键决策。工具调用、中间过程等噪音自动过滤，阅读体验清爽。 |
-| **"对方正在输入中..."** | Claude 在处理任务时，微信顶部会显示输入状态，随时感知它在干活。 |
-| **电脑手机体验一致** | 手机端和电脑端 Claude Code 行为完全相同——同样的编排逻辑、同样的输出效果。不是两个割裂的 AI。 |
-| **文件双向收发** | 发图片、Word、PDF 给 Claude 分析；Claude 生成的文件也会直接推送到微信，不用回到电脑前查看。 |
+| **"对方正在输入中..."** | Codex 在处理任务时，微信顶部会显示输入状态，随时感知它在干活。 |
+| **电脑手机体验一致** | 手机端和电脑端 Codex 尽量复用同一套任务上下文和反馈规则。不是两个割裂的 AI。 |
+| **文件双向收发** | 发图片、Word、PDF 给 Codex 分析；Codex 生成的文件也会直接推送到微信，不用回到电脑前查看。 |
 | **超时安抚** | 任务超过 5 分钟没响应？它会自动发一条消息告诉你还在干，不会让你对着空白聊天框干等。 |
 
 ## 快速安装
@@ -31,7 +30,7 @@
 **方式一：skills CLI（推荐）**
 
 ```bash
-npx skills add Wechat-ggGitHub/wechat-claude-code
+npx skills add DENGGL2/wechat-codex-code
 ```
 
 首次在对话中触发时，会自动克隆项目源码并安装依赖。
@@ -39,8 +38,8 @@ npx skills add Wechat-ggGitHub/wechat-claude-code
 **方式二：手动克隆**
 
 ```bash
-git clone https://github.com/Wechat-ggGitHub/wechat-claude-code.git ~/.claude/skills/wechat-claude-code
-cd ~/.claude/skills/wechat-claude-code && npm install
+git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
+cd ~/.claude/skills/wechat-codex-code && npm install
 ```
 
 ## 快速开始
@@ -48,7 +47,7 @@ cd ~/.claude/skills/wechat-claude-code && npm install
 ### 1. 扫码绑定
 
 ```bash
-cd ~/.claude/skills/wechat-claude-code
+cd ~/.claude/skills/wechat-codex-code
 npm run setup
 ```
 
@@ -117,25 +116,25 @@ Codex 模式会调用本机 Codex CLI。微信里也可以把文字流转到当�
 ## 工作原理
 
 ```
-微信（手机） ←→ ilink Bot API ←→ Node.js 守护进程 ←→ Claude Code CLI（本地）
+微信（手机） ←→ ilink Bot API ←→ Node.js 守护进程 ←→ Codex CLI / Codex 桌面端（本地）
 ```
 
-守护进程通过长轮询监听微信消息，转发给本地 `claude` CLI 处理，回复实时流式推送回微信。全程跑在你自己电脑上。
+守护进程通过长轮询监听微信消息，转发给本机 Codex 处理，回复实时流式推送回微信。全程跑在你自己电脑上。
 
 ## 后续计划
 
 - **消息队列优化** — 连续发多条指令时，回复容易串。正在研究更好的队列策略，也欢迎讨论。
 - **电脑休眠不中断** — 利用 macOS 的 `caffeinate` 命令阻止系统睡眠，合上盖子也能响应微信消息。
-- **接续电脑会话** — 在电脑上聊了很久，出门想接着聊。计划支持从当前电脑端的 Claude Code 会话直接续聊，工作空间和上下文保持一致。
+- **接续电脑会话** — 在电脑上聊了很久，出门想接着聊。计划继续增强从当前电脑端 Codex 会话续聊的能力，工作空间和上下文尽量保持一致。
 
 ## 前置条件
 
 - Node.js >= 18
-- macOS 或 Linux
+- Windows、macOS 或 Linux
 - 个人微信账号
-- 已安装 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI 并完成认证
+- 已安装 Codex CLI 或 Codex 桌面端，并完成登录/认证
 
-> **提示：** Claude Code 支持第三方 API 提供商（OpenRouter、AWS Bedrock 等），设置 `ANTHROPIC_BASE_URL` 和 `ANTHROPIC_API_KEY` 即可。
+> **提示：** 如果同时保留 Claude 后端，也可以通过微信端 `/provider codex|claude` 切换。
 
 ## 数据目录
 
