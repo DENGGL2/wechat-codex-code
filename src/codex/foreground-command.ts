@@ -21,17 +21,17 @@ export function parseForegroundCodexInput(text: string): string | undefined {
     return natural[1].trim();
   }
 
-  const helpMeInput = trimmed.match(/^帮我输入(?:到\s*codex(?:输入框)?)?(?:[：:\s]+|(?=\S))([\s\S]+)$/i);
+  const helpMeInput = trimmed.match(/^帮我输(?!出)(?:入)?(?:到\s*codex(?:输入框)?)?(?:[，,：:\s]+|(?=\S))([\s\S]+)$/i);
   if (helpMeInput?.[1]?.trim()) {
-    return helpMeInput[1].trim();
+    return helpMeInput[1].replace(/^[，,：:\s]+/, '').trim();
   }
 
   return undefined;
 }
 
 function isForegroundInputMetaQuestion(text: string): boolean {
-  return /^帮我输入(?:到\s*codex(?:输入框)?)?(?:这个)?功能/.test(text)
-    || /^帮我输入(?:到\s*codex(?:输入框)?)?.*(?:没问题|对吧|还在吗|怎么用|是什么|是否|能不能)/.test(text);
+  return /^帮我输(?!出)(?:入)?(?:到\s*codex(?:输入框)?)?(?:这个)?功能/.test(text)
+    || /^帮我输(?!出)(?:入)?(?:到\s*codex(?:输入框)?)?.*(?:没问题|对吧|还在吗|怎么用|是什么|是否|能不能)/.test(text);
 }
 
 export async function handleForegroundCodexCommand(text: string): Promise<ForegroundCommandResult> {
@@ -55,4 +55,3 @@ export async function handleForegroundCodexCommand(text: string): Promise<Foregr
     reply: `没有填入：${result.error || '前台窗口不是 Codex'}。请先点一下 Codex 输入框，再重试。`,
   };
 }
-

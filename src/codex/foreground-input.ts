@@ -53,11 +53,11 @@ try {
   $builder = New-Object System.Text.StringBuilder 512
   [void][Win32]::GetWindowText($hwnd, $builder, $builder.Capacity)
   $title = $builder.ToString()
-  [uint32]$pid = 0
-  [void][Win32]::GetWindowThreadProcessId($hwnd, [ref]$pid)
+  [uint32]$foregroundProcessId = 0
+  [void][Win32]::GetWindowThreadProcessId($hwnd, [ref]$foregroundProcessId)
   $processName = ''
   try {
-    $processName = [Diagnostics.Process]::GetProcessById([int]$pid).ProcessName
+    $processName = [Diagnostics.Process]::GetProcessById([int]$foregroundProcessId).ProcessName
   } catch {}
   if ($title -notmatch '(?i)codex' -and $processName -notmatch '(?i)^codex$') {
     Write-Output (@{ ok = $false; title = $title; process = $processName; error = '前台窗口不是 Codex' } | ConvertTo-Json -Compress)
