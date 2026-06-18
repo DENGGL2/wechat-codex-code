@@ -1,5 +1,4 @@
 import type { CommandContext, CommandResult } from './router.js';
-import { scanAllSkills, formatSkillList, findSkill, type SkillInfo } from '../claude/skill-scanner.js';
 import { loadConfig, saveConfig } from '../config.js';
 import { DEFAULT_WORKING_DIR } from '../constants.js';
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -24,34 +23,13 @@ const HELP_TEXT = `可用命令：
 
 配置：
   /cwd [路径]       查看或切换工作目录
-  /model [名称]     查看或切换 Claude 模型
+  /model [名称]     查看或切换 Codex 模型
   /prompt [内容]    查看或设置系统提示词（全局生效）
 
 其他：
-  /skills [full]    列出已安装的 skill（full 显示描述）
   /version          查看版本信息
-  /<skill> [参数]   触发已安装的 skill
 
-直接输入文字即可与 Claude Code 对话`;
-
-// 缓存 skill 列表，避免每次命令都扫描文件系统
-let cachedSkills: SkillInfo[] | null = null;
-let lastScanTime = 0;
-const CACHE_TTL = 60_000; // 60秒
-
-function getSkills(): SkillInfo[] {
-  const now = Date.now();
-  if (!cachedSkills || now - lastScanTime > CACHE_TTL) {
-    cachedSkills = scanAllSkills();
-    lastScanTime = now;
-  }
-  return cachedSkills;
-}
-
-/** 清除缓存，用于 /skills 命令强制刷新 */
-export function invalidateSkillCache(): void {
-  cachedSkills = null;
-}
+直接输入文字即可与 Codex 对话`;
 
 export function handleHelp(_args: string): CommandResult {
   return { reply: HELP_TEXT, handled: true };
@@ -73,7 +51,7 @@ export function handleCwd(ctx: CommandContext, args: string): CommandResult {
 
 export function handleModel(ctx: CommandContext, args: string): CommandResult {
   if (!args) {
-    return { reply: '用法: /model <模型名称>\n例: /model claude-sonnet-4-6', handled: true };
+    return { reply: '用法: /model <模型名称>\n例: /model gpt-5', handled: true };
   }
   ctx.updateSession({ model: args });
   return { reply: `✅ 模型已切换为: ${args}`, handled: true };
@@ -90,22 +68,6 @@ export function handleStatus(ctx: CommandContext): CommandResult {
     `状态: ${s.state}`,
   ];
   return { reply: lines.join('\n'), handled: true };
-}
-
-export function handleSkills(args: string): CommandResult {
-  invalidateSkillCache();
-  const skills = getSkills();
-  if (skills.length === 0) {
-    return { reply: '未找到已安装的 skill。', handled: true };
-  }
-
-  const showFull = args.trim().toLowerCase() === 'full';
-  if (showFull) {
-    const lines = skills.map(s => `/${s.name}\n   ${s.description}`);
-    return { reply: `📋 已安装的 Skill (${skills.length}):\n\n${lines.join('\n\n')}`, handled: true };
-  }
-  const lines = skills.map(s => `/${s.name}`);
-  return { reply: `📋 已安装的 Skill (${skills.length}):\n\n${lines.join('\n')}\n\n使用 /skills full 查看完整描述`, handled: true };
 }
 
 const MAX_HISTORY_LIMIT = 100;
@@ -168,9 +130,9 @@ export function handleVersion(): CommandResult {
     const __dirname = fileURLToPath(new URL('.', import.meta.url));
     const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8'));
     const version = pkg.version || 'unknown';
-    return { reply: `wechat-claude-code v${version}`, handled: true };
+    return { reply: `wechat-codex-code v${version}`, handled: true };
   } catch {
-    return { reply: 'wechat-claude-code (version unknown)', handled: true };
+    return { reply: 'wechat-codex-code (version unknown)', handled: true };
   }
 }
 
@@ -194,20 +156,11 @@ export function handlePrompt(_ctx: CommandContext, args: string): CommandResult 
 }
 
 export function handleProvider(args: string): CommandResult {
-  const config = loadConfig();
   const value = args.trim().toLowerCase();
-  if (!value) {
-    return {
-      reply: `当前 AI 后端: ${config.aiProvider || 'codex'}\n用法: /provider codex 或 /provider claude`,
-      handled: true,
-    };
+  if (!value || value === 'codex') {
+    return { reply: '当前 AI 后端: codex', handled: true };
   }
-  if (value !== 'codex' && value !== 'claude') {
-    return { reply: '用法: /provider codex 或 /provider claude', handled: true };
-  }
-  config.aiProvider = value;
-  saveConfig(config);
-  return { reply: `AI 后端已切换为: ${value}`, handled: true };
+  return { reply: '当前版本仅支持 Codex 后端。', handled: true };
 }
 
 export function handleSend(ctx: CommandContext, args: string): CommandResult {
@@ -235,16 +188,8 @@ export function handleSend(ctx: CommandContext, args: string): CommandResult {
 }
 
 export function handleUnknown(cmd: string, args: string): CommandResult {
-  const skills = getSkills();
-  const skill = findSkill(skills, cmd);
-
-  if (skill) {
-    const prompt = args ? `Use the ${skill.name} skill: ${args}` : `Use the ${skill.name} skill`;
-    return { handled: true, claudePrompt: prompt };
-  }
-
   return {
     handled: true,
-    reply: `未找到 skill: ${cmd}\n输入 /skills 查看可用列表`,
+    reply: `未知命令: /${cmd}`,
   };
 }

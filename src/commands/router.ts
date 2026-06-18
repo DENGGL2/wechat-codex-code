@@ -1,7 +1,6 @@
 import type { Session } from '../session.js';
-import { findSkill } from '../claude/skill-scanner.js';
 import { logger } from '../logger.js';
-import { handleHelp, handleClear, handleCwd, handleModel, handleStatus, handleSkills, handleHistory, handleReset, handleCompact, handleUndo, handleVersion, handlePrompt, handleProvider, handleSend, handleUnknown } from './handlers.js';
+import { handleHelp, handleClear, handleCwd, handleModel, handleStatus, handleHistory, handleReset, handleCompact, handleUndo, handleVersion, handlePrompt, handleProvider, handleSend, handleUnknown } from './handlers.js';
 
 export interface CommandContext {
   accountId: string;
@@ -15,7 +14,7 @@ export interface CommandContext {
 export interface CommandResult {
   reply?: string;
   handled: boolean;
-  claudePrompt?: string;
+  codexPrompt?: string;
   sendFile?: string; // Absolute path to a file to send to the user
 }
 
@@ -27,8 +26,6 @@ export interface CommandResult {
  *   /clear    - Clear the current session
  *   /model <name> - Update the session model
  *   /status   - Show current session info
- *   /skills   - List all installed skills
- *   /<skill>  - Invoke a skill by name (args are forwarded to Claude)
  */
 export function routeCommand(ctx: CommandContext): CommandResult {
   const text = ctx.text.trim();
@@ -60,8 +57,6 @@ export function routeCommand(ctx: CommandContext): CommandResult {
       return handleProvider(args);
     case 'status':
       return handleStatus(ctx);
-    case 'skills':
-      return handleSkills(args);
     case 'history':
       return handleHistory(ctx, args);
     case 'undo':

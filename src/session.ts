@@ -131,7 +131,7 @@ export function createSessionStore() {
     const lines: string[] = [];
     for (const msg of messages) {
       const time = new Date(msg.timestamp).toLocaleString('zh-CN');
-      const role = msg.role === 'user' ? '用户' : 'Claude';
+      const role = msg.role === 'user' ? '用户' : 'Codex';
       lines.push(`[${time}] ${role}:`);
       lines.push(msg.content);
       lines.push('');

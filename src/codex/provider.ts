@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { logger } from '../logger.js';
-import type { QueryOptions, QueryResult } from '../claude/provider.js';
+import type { QueryOptions, QueryResult } from './types.js';
 
 function findCodexBinary(): string {
   const envPath = process.env.CODEX_CLI_PATH;

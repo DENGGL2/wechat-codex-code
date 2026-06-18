@@ -14,7 +14,7 @@ import { createSender } from './wechat/send.js';
 import { downloadImage, extractText, extractFirstImageUrl, extractFirstFileItem, downloadFile } from './wechat/media.js';
 import { createSessionStore, type Session } from './session.js';
 import { routeCommand, type CommandContext, type CommandResult } from './commands/router.js';
-import { claudeQuery, type QueryOptions } from './claude/provider.js';
+import type { QueryOptions } from './codex/types.js';
 import { handleForegroundCodexCommand } from './codex/foreground-command.js';
 import { codexQuery } from './codex/provider.js';
 import { startCodexDesktopCompletionMonitor } from './codex/desktop-completion-monitor.js';
@@ -30,7 +30,7 @@ import { MessageType, type WeixinMessage } from './wechat/types.js';
 
 const MAX_MESSAGE_LENGTH = 4000;
 
-// Extensions eligible for auto-push when detected in Claude's response
+// Extensions eligible for auto-push when detected in Codex output.
 const AUTO_PUSH_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico',
   '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.rtf',
@@ -39,7 +39,7 @@ const AUTO_PUSH_EXTENSIONS = new Set([
   '.mp3', '.wav', '.m4a', '.mp4', '.mov',
 ]);
 
-/** Extract local file paths from Claude's response text. */
+/** Extract local file paths from Codex output text. */
 function extractFilePathsFromText(text: string, cwd: string): string[] {
   const paths: string[] = [];
   // Match absolute paths (macOS/Linux), tilde paths, and Windows paths with a file extension
@@ -230,7 +230,7 @@ async function runSetup(): Promise<void> {
     logger.warn('Failed to clean up QR image', { path: QR_PATH });
   }
 
-  const workingDir = await promptUser('请输入工作目录', join(homedir(), 'Documents', 'ClaudeCode'));
+  const workingDir = await promptUser('请输入工作目录', join(homedir(), 'Documents', 'CodexCode'));
   const config = loadConfig();
   config.workingDirectory = workingDir;
   saveConfig(config);
@@ -432,9 +432,9 @@ async function handleMessage(
       return;
     }
 
-    if (result.handled && result.claudePrompt) {
-      await sendToClaude(
-        result.claudePrompt, imageItem, fileItem, fromUserId, contextToken,
+    if (result.handled && result.codexPrompt) {
+      await sendToCodex(
+        result.codexPrompt, imageItem, fileItem, fromUserId, contextToken,
         account, session, sessionStore, sender, config, activeControllers, bridgeThreadIds,
       );
       return;
@@ -450,7 +450,7 @@ async function handleMessage(
     // Not handled, treat as normal message (fall through)
   }
 
-  // -- Normal message -> Claude --
+  // -- Normal message -> Codex --
 
   if (!userText && !imageItem && !fileItem) {
     await sender.sendText(fromUserId, contextToken, '暂不支持此类型消息，请发送文字、语音、图片或文件');
@@ -458,7 +458,7 @@ async function handleMessage(
   }
 
   const promptText = buildFollowUpPrompt(userText, session);
-  await sendToClaude(
+  await sendToCodex(
     promptText, imageItem, fileItem, fromUserId, contextToken,
     account, session, sessionStore, sender, config, activeControllers, bridgeThreadIds,
     userText,
@@ -503,7 +503,7 @@ function getInstantReply(text: string, session: Session): string | undefined {
     return '我是 Codex，可以帮你处理这台电脑上的项目、代码、文档和文件。';
   }
   if (/(当前.*后端|现在.*后端|provider|通道).*(是什么|哪个|状态)?/i.test(trimmed)) {
-    return `当前微信桥接后端是 ${(loadConfig().aiProvider || 'codex').toUpperCase()}。`;
+    return '当前微信桥接后端是 CODEX。';
   }
   if (/(记住了吗|记得吗|偏好|规则).*(吗|有哪些|是什么)?/.test(trimmed)) {
     const prefs = (Array.isArray(session.userPreferences) ? session.userPreferences : []).filter(Boolean);
@@ -584,7 +584,7 @@ function isCodexOfflineError(error: string): boolean {
   return /(?:Failed to spawn codex|codex exited with code|ENOENT|EACCES|Access is denied|The system cannot find the file specified)/i.test(error);
 }
 
-async function sendToClaude(
+async function sendToCodex(
   userText: string,
   imageItem: ReturnType<typeof extractFirstImageUrl>,
   fileItem: ReturnType<typeof extractFirstFileItem>,
@@ -739,20 +739,7 @@ async function sendToClaude(
       },
     };
 
-    const provider = config.aiProvider || 'codex';
-    let result = provider === 'claude'
-      ? await claudeQuery(queryOptions)
-      : await codexQuery(queryOptions);
-
-    // If resume failed (e.g. corrupted session), retry without resume
-    if (provider === 'claude' && result.error && queryOptions.resume) {
-      logger.warn('Resume failed, retrying without resume', { error: result.error, sessionId: queryOptions.resume });
-      queryOptions.resume = undefined;
-      session.sdkSessionId = undefined;
-      sessionStore.save(account.accountId, session);
-      const retryResult = await claudeQuery(queryOptions);
-      Object.assign(result, retryResult);
-    }
+    const result = await codexQuery(queryOptions);
 
     // Stop periodic flush and send any remaining buffered content
     clearInterval(flushTimer);
@@ -763,7 +750,7 @@ async function sendToClaude(
     // Send result back to WeChat
     if (result.text) {
       if (result.error) {
-        logger.warn('Claude query had error but returned text, using text', { error: result.error });
+        logger.warn('Codex query had error but returned text, using text', { error: result.error });
       }
       completionSummary = summarizeCompletionForWechat(result.text);
       sessionStore.addChatMessage(session, 'assistant', result.text);
@@ -775,19 +762,16 @@ async function sendToClaude(
         }
       }
     } else if (result.error) {
-      logger.error('AI query error', { provider, error: result.error });
-      const reply = provider === 'codex' && isCodexOfflineError(result.error)
+      logger.error('AI query error', { provider: 'codex', error: result.error });
+      const reply = isCodexOfflineError(result.error)
         ? 'Codex 已离线'
-        : `${provider === 'claude' ? 'Claude' : 'Codex'} 处理请求时出错，请稍后重试。`;
+        : 'Codex 处理请求时出错，请稍后重试。';
       await sender.sendText(fromUserId, contextToken, reply);
     } else if (!anySent) {
-      const reply = provider === 'codex'
-        ? 'Codex 已离线'
-        : 'Claude 无返回内容（可能因权限被拒而终止）';
-      await sender.sendText(fromUserId, contextToken, reply);
+      await sender.sendText(fromUserId, contextToken, 'Codex 已离线');
     }
 
-    if (provider === 'codex' && result.sessionId) {
+    if (result.sessionId) {
       bridgeThreadIds.add(result.sessionId);
     }
 
@@ -803,7 +787,7 @@ async function sendToClaude(
         fromUserId,
         contextToken,
         completedAt: Date.now(),
-        provider,
+        provider: 'codex',
         sessionId: result.sessionId || undefined,
       };
     }
@@ -813,7 +797,7 @@ async function sendToClaude(
       await sender.sendText(fromUserId, contextToken, `Codex 任务完成：${completionSummary}`);
     }
 
-    // Auto-push deliverable files mentioned in Claude's response
+    // Auto-push deliverable files mentioned in Codex output.
     if (result.text) {
       const cwd = (session.workingDirectory || config.workingDirectory).replace(/^~/, homedir());
       const detectedPaths = extractFilePathsFromText(result.text, cwd);
@@ -861,10 +845,10 @@ async function sendToClaude(
     const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('abort'));
     if (isAbort) {
       // Query was cancelled by a new incoming message — exit silently
-      logger.info('Claude query aborted by new message');
+      logger.info('Codex query aborted by new message');
     } else {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      logger.error('Error in sendToClaude', { error: errorMsg });
+      logger.error('Error in sendToCodex', { error: errorMsg });
       await sender.sendText(fromUserId, contextToken, '处理消息时出错，请稍后重试。');
     }
     session.state = 'idle';

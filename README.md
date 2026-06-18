@@ -9,8 +9,6 @@
   <a href="README_en.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=flat-square" alt="English"></a>
 </p>
 
-> 本项目基于 [Wechat-ggGitHub/wechat-claude-code](https://github.com/Wechat-ggGitHub/wechat-claude-code) 修改，遵循原项目 MIT License。
-
 扫码绑定微信后，你可以通过微信把文字、语音、图片、文件转给本机 Codex 处理，结果会回到微信。也支持把微信口述内容填入当前前台 Codex 输入框、任务完成后推送简要结果，以及在高风险操作前等待确认。
 
 ## 核心亮点
@@ -36,8 +34,8 @@ npx skills add DENGGL2/wechat-codex-code
 **方式二：手动克隆**
 
 ```bash
-git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
-cd ~/.claude/skills/wechat-codex-code && npm install
+git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.codex/skills/wechat-codex-code
+cd ~/.codex/skills/wechat-codex-code && npm install
 ```
 
 ## 快速开始
@@ -45,7 +43,7 @@ cd ~/.claude/skills/wechat-codex-code && npm install
 ### 1. 扫码绑定
 
 ```bash
-cd ~/.claude/skills/wechat-codex-code
+cd ~/.codex/skills/wechat-codex-code
 npm run setup
 ```
 
@@ -63,46 +61,9 @@ npm run daemon -- start
 
 打开微信，给你新出现的那个"好友"发条消息试试。
 
-### 管理服务
-
-```bash
-npm run daemon -- status   # 查看运行状态
-npm run daemon -- stop     # 停止服务
-npm run daemon -- restart  # 重启服务（更新代码后使用）
-npm run daemon -- logs     # 查看日志
-```
-
-## 微信端命令
-
-直接在微信聊天中发送即可：
-
-| 命令 | 说明 |
-|------|------|
-| `/help` | 显示帮助 |
-| `/clear` | 清除当前会话，开始新对话 |
-| `/stop` | 停止当前任务 |
-| `/provider <codex\|claude>` | 切换 AI 后端，默认 Codex，保留原 Claude 通道 |
-| `/model <名称>` | 切换当前后端使用的模型 |
-| `/prompt <内容>` | 设置系统提示词（如"用中文回答"） |
-| `/cwd <路径>` | 切换工作目录 |
-| `/skills` | 查看已安装的 Skill |
-| `/status` | 查看当前会话状态 |
-| `/history [数量]` | 查看最近对话记录 |
-| `/compact` | 压缩上下文，开始新 CLI 会话 |
-| `/reset` | 完全重置（包括工作目录等设置） |
-| `/undo [数量]` | 撤销最近几条对话 |
-| `/<skill> [参数]` | 触发任意已安装的 Skill |
-
 ## Codex 功能
 
-本 fork 保留原项目的 Claude 通道，并新增 Codex 通道。切换方式：
-
-```bash
-/provider codex
-/provider claude
-```
-
-Codex 模式会调用本机 Codex CLI；Claude 模式继续走原项目的本机 Claude CLI。微信里也可以把文字流转到当前前台 Codex 输入框：
+这个版本会把微信消息交给本机 Codex 处理。你可以在微信里发文字、语音、图片和文件，也可以让它把内容填入当前前台 Codex 输入框：
 
 ```text
 帮我输入这里是要填入 Codex 输入框的内容
@@ -128,10 +89,10 @@ Codex 模式会调用本机 Codex CLI；Claude 模式继续走原项目的本机
 
 ## 数据目录
 
-所有数据存储在 `~/.wechat-claude-code/`：
+所有数据存储在 `~/.wechat-codex-code/`：
 
 ```
-~/.wechat-claude-code/
+~/.wechat-codex-code/
 ├── accounts/       # 微信账号凭证
 ├── config.json     # 全局配置
 ├── sessions/       # 会话数据
@@ -141,3 +102,5 @@ Codex 模式会调用本机 Codex CLI；Claude 模式继续走原项目的本机
 ## License
 
 [MIT](LICENSE)
+
+本项目基于开源项目修改并遵循 MIT License，原项目版权声明见 [LICENSE](LICENSE)。

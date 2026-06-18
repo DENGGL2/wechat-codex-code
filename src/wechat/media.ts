@@ -122,7 +122,7 @@ export async function downloadFile(item: MessageItem): Promise<string | null> {
 
   try {
     const decrypted = await downloadAndDecrypt(encryptQueryParam, aesKey);
-    const tmpDir = path.join(os.tmpdir(), 'wechat-claude-code');
+    const tmpDir = path.join(os.tmpdir(), 'wechat-codex-code');
     fs.mkdirSync(tmpDir, { recursive: true });
     const fileName = fileItem.file_name || `file-${Date.now()}.bin`;
     const filePath = path.join(tmpDir, fileName);

@@ -27,8 +27,8 @@ npx skills add DENGGL2/wechat-codex-code
 **方式二：手动克隆**
 
 ```bash
-git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
-cd ~/.claude/skills/wechat-codex-code && npm install
+git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.codex/skills/wechat-codex-code
+cd ~/.codex/skills/wechat-codex-code && npm install
 ```
 
 ## 触发场景
@@ -44,29 +44,29 @@ cd ~/.claude/skills/wechat-codex-code && npm install
 ### 第 1 步：检查项目是否完整安装
 
 ```bash
-test -f ~/.claude/skills/wechat-codex-code/package.json && echo "source_ok" || echo "source_missing"
+test -f ~/.codex/skills/wechat-codex-code/package.json && echo "source_ok" || echo "source_missing"
 ```
 
 - 如果 `source_missing`：需要从 GitHub 克隆完整项目。建议重新执行手动安装：
   ```bash
-  git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
-  cd ~/.claude/skills/wechat-codex-code && npm install
+  git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.codex/skills/wechat-codex-code
+  cd ~/.codex/skills/wechat-codex-code && npm install
   ```
   然后继续检查依赖。
 
 - 如果 `source_ok`：继续检查依赖。
 
 ```bash
-cd ~/.claude/skills/wechat-codex-code && test -d node_modules && echo "deps_ok" || echo "deps_missing"
+cd ~/.codex/skills/wechat-codex-code && test -d node_modules && echo "deps_ok" || echo "deps_missing"
 ```
 
-- 如果 `deps_missing`：执行 `cd ~/.claude/skills/wechat-codex-code && npm install` 安装依赖，然后继续。
+- 如果 `deps_missing`：执行 `cd ~/.codex/skills/wechat-codex-code && npm install` 安装依赖，然后继续。
 - 如果 `deps_ok`：继续下一步。
 
 ### 第 2 步：检查是否已绑定微信账号
 
 ```bash
-ls ~/.wechat-claude-code/accounts/*.json 2>/dev/null | head -1
+ls ~/.wechat-codex-code/accounts/*.json 2>/dev/null | head -1
 ```
 
 - 如果没有账号文件：提示用户需要先执行 setup 扫码绑定，询问是否现在执行。
@@ -75,7 +75,7 @@ ls ~/.wechat-claude-code/accounts/*.json 2>/dev/null | head -1
 ### 第 3 步：检查 daemon 运行状态
 
 ```bash
-cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
+cd ~/.codex/skills/wechat-codex-code && npm run daemon -- status
 ```
 
 ### 第 4 步：根据状态展示信息
@@ -101,11 +101,11 @@ cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
   restart  重启服务（代码更新后使用）
   logs     查看运行日志
 
-微信端命令（直接在微信中发送）：
+微信端常用能力：
   /help    显示帮助
   /clear   清除当前会话，开始新对话
   /status  查看当前会话状态
-  /provider 切换 codex/claude 后端
+  帮我输入  把内容填入前台 Codex 输入框
   /prompt  设置系统提示词
   /cwd     切换工作目录
   /skills  查看已安装的 skill
@@ -115,7 +115,7 @@ cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
 
 ## 子命令参考
 
-所有命令的工作目录为 `~/.claude/skills/wechat-codex-code`。
+所有命令的工作目录为 `~/.codex/skills/wechat-codex-code`。
 
 | 命令 | 执行 | 说明 |
 |------|------|------|
@@ -128,10 +128,10 @@ cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
 
 ## 数据目录
 
-所有数据存储在 `~/.wechat-claude-code/`：
+所有数据存储在 `~/.wechat-codex-code/`：
 
 ```
-~/.wechat-claude-code/
+~/.wechat-codex-code/
 ├── accounts/       # 绑定的微信账号数据（每个账号一个 JSON）
 ├── config.env      # 全局配置（工作目录、模型、系统提示词）
 ├── sessions/       # 会话数据（每个账号一个 JSON）

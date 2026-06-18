@@ -9,8 +9,6 @@
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-中文-lightgrey?style=flat-square" alt="中文"></a>
 </p>
 
-> This project is based on [Wechat-ggGitHub/wechat-claude-code](https://github.com/Wechat-ggGitHub/wechat-claude-code) and follows the original MIT License.
-
 Scan a QR code to bind your WeChat, then send text, voice, images, and files to Codex running on your computer. Replies stream back to WeChat, and the bridge also supports foreground Codex input, completion notifications, and confirmation before higher-risk operations.
 
 ---
@@ -41,8 +39,8 @@ The first time you trigger the skill, it will automatically clone the source and
 **Option 2: Manual clone**
 
 ```bash
-git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.claude/skills/wechat-codex-code
-cd ~/.claude/skills/wechat-codex-code && npm install
+git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.codex/skills/wechat-codex-code
+cd ~/.codex/skills/wechat-codex-code && npm install
 ```
 
 ## Quick Start
@@ -50,7 +48,7 @@ cd ~/.claude/skills/wechat-codex-code && npm install
 ### 1. Bind WeChat
 
 ```bash
-cd ~/.claude/skills/wechat-codex-code
+cd ~/.codex/skills/wechat-codex-code
 npm run setup
 ```
 
@@ -68,48 +66,9 @@ Once started, the service listens for WeChat messages and forwards tasks to loca
 
 Open WeChat and send a message to your new "friend".
 
-### Manage the service
-
-```bash
-npm run daemon -- status   # Check if running
-npm run daemon -- stop     # Stop the service
-npm run daemon -- restart  # Restart (after code updates)
-npm run daemon -- logs     # View recent logs
-```
-
----
-
-## WeChat Commands
-
-Send these directly in the WeChat chat:
-
-| Command | Description |
-|---------|-------------|
-| `/help` | Show available commands |
-| `/clear` | Clear current session, start fresh |
-| `/stop` | Stop current task |
-| `/provider <codex\|claude>` | Switch AI backend. Codex is the default; the original Claude path is preserved. |
-| `/model <name>` | Switch the model used by the current backend |
-| `/prompt <text>` | Set a system prompt (e.g. "reply in Chinese") |
-| `/cwd <path>` | Switch working directory |
-| `/skills` | List installed Skills |
-| `/status` | View current session state |
-| `/history [n]` | View recent chat history |
-| `/compact` | Compact context, start a new CLI session |
-| `/reset` | Full reset including working directory |
-| `/undo [n]` | Remove last N messages from history |
-| `/<skill> [args]` | Trigger any installed Skill |
-
 ## Codex Support
 
-This fork keeps the original Claude path and adds a Codex path. Switch from WeChat with:
-
-```bash
-/provider codex
-/provider claude
-```
-
-Codex mode calls the local Codex CLI; Claude mode keeps using the original local Claude CLI. You can also dictate or type text in WeChat and paste it into the foreground Codex input box:
+This version forwards WeChat messages to local Codex. You can send text, voice, images, and files, or dictate/type content in WeChat and paste it into the foreground Codex input box:
 
 ```text
 帮我输入 text to paste into Codex
@@ -139,10 +98,10 @@ The daemon long-polls WeChat for new messages, forwards them to local Codex, and
 
 ## Data Directory
 
-All data is stored in `~/.wechat-claude-code/`:
+All data is stored in `~/.wechat-codex-code/`:
 
 ```
-~/.wechat-claude-code/
+~/.wechat-codex-code/
 ├── accounts/       # WeChat account credentials
 ├── config.json     # Global config
 ├── sessions/       # Session data
@@ -152,3 +111,5 @@ All data is stored in `~/.wechat-claude-code/`:
 ## License
 
 [MIT](LICENSE)
+
+This project is based on open-source work under the MIT License. See [LICENSE](LICENSE) for the original copyright notice.
