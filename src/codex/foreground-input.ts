@@ -35,6 +35,7 @@ export async function pasteIntoForegroundCodex(text: string): Promise<Foreground
   const script = `
 Add-Type @"
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 public class Win32 {
@@ -42,6 +43,8 @@ public class Win32 {
   public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll", CharSet=CharSet.Unicode)]
   public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+  [DllImport("user32.dll")]
+  public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 }
 "@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -50,8 +53,14 @@ try {
   $builder = New-Object System.Text.StringBuilder 512
   [void][Win32]::GetWindowText($hwnd, $builder, $builder.Capacity)
   $title = $builder.ToString()
-  if ($title -notmatch '(?i)codex') {
-    Write-Output (@{ ok = $false; title = $title; error = '前台窗口不是 Codex' } | ConvertTo-Json -Compress)
+  [uint32]$pid = 0
+  [void][Win32]::GetWindowThreadProcessId($hwnd, [ref]$pid)
+  $processName = ''
+  try {
+    $processName = [Diagnostics.Process]::GetProcessById([int]$pid).ProcessName
+  } catch {}
+  if ($title -notmatch '(?i)codex' -and $processName -notmatch '(?i)^codex$') {
+    Write-Output (@{ ok = $false; title = $title; process = $processName; error = '前台窗口不是 Codex' } | ConvertTo-Json -Compress)
     exit 0
   }
   $bytes = [Convert]::FromBase64String($env:WCC_CODEX_INPUT_B64)
@@ -61,7 +70,7 @@ try {
   Start-Sleep -Milliseconds 120
   [void]$shell.SendKeys('^v')
   Start-Sleep -Milliseconds 120
-  Write-Output (@{ ok = $true; title = $title } | ConvertTo-Json -Compress)
+  Write-Output (@{ ok = $true; title = $title; process = $processName } | ConvertTo-Json -Compress)
 } catch {
   Write-Output (@{ ok = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress)
   exit 0
