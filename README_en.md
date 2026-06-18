@@ -10,6 +10,8 @@
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-中文-lightgrey?style=flat-square" alt="中文"></a>
 </p>
 
+> This project is based on [Wechat-ggGitHub/wechat-claude-code](https://github.com/Wechat-ggGitHub/wechat-claude-code) and follows the original MIT License.
+
 Scan a QR code to bind your WeChat, and a new "friend" appears in your contacts. Send it a message — it gets forwarded to Claude Code running on your computer, and the reply streams back to WeChat in real time. Supports text, images, voice, and files.
 
 ---
@@ -88,6 +90,7 @@ Send these directly in the WeChat chat:
 | `/clear` | Clear current session, start fresh |
 | `/stop` | Stop current task |
 | `/model <name>` | Switch Claude model |
+| `/provider <codex\|claude>` | Switch AI backend |
 | `/prompt <text>` | Set a system prompt (e.g. "reply in Chinese") |
 | `/cwd <path>` | Switch working directory |
 | `/skills` | List installed Skills |
@@ -97,6 +100,24 @@ Send these directly in the WeChat chat:
 | `/reset` | Full reset including working directory |
 | `/undo [n]` | Remove last N messages from history |
 | `/<skill> [args]` | Trigger any installed Skill |
+
+## Codex Support
+
+This branch can switch between Claude and Codex backends from WeChat:
+
+```bash
+/provider codex
+/provider claude
+```
+
+Codex mode calls the local Codex CLI. You can also dictate or type text in WeChat and paste it into the foreground Codex input box:
+
+```text
+帮我输入 text to paste into Codex
+/input text to paste into Codex
+```
+
+This only fills the input box and does not auto-send. On Windows, the bridge can also push a concise Codex completion summary to WeChat when the PC is locked.
 
 ---
 

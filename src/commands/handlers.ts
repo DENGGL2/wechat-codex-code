@@ -193,6 +193,23 @@ export function handlePrompt(_ctx: CommandContext, args: string): CommandResult 
   return { reply: `✅ 系统提示词已设置:\n${config.systemPrompt}`, handled: true };
 }
 
+export function handleProvider(args: string): CommandResult {
+  const config = loadConfig();
+  const value = args.trim().toLowerCase();
+  if (!value) {
+    return {
+      reply: `当前 AI 后端: ${config.aiProvider || 'codex'}\n用法: /provider codex 或 /provider claude`,
+      handled: true,
+    };
+  }
+  if (value !== 'codex' && value !== 'claude') {
+    return { reply: '用法: /provider codex 或 /provider claude', handled: true };
+  }
+  config.aiProvider = value;
+  saveConfig(config);
+  return { reply: `AI 后端已切换为: ${value}`, handled: true };
+}
+
 export function handleSend(ctx: CommandContext, args: string): CommandResult {
   if (!args) {
     return { reply: '用法: /send <文件路径>\n例: /send ~/Documents/report.pdf\n     /send ./chart.png', handled: true };

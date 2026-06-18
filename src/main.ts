@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { join, basename } from 'node:path';
 import { unlinkSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 
 import { WeChatApi } from './wechat/api.js';
 import { saveAccount, loadLatestAccount, type AccountData } from './wechat/accounts.js';
@@ -14,6 +15,10 @@ import { downloadImage, extractText, extractFirstImageUrl, extractFirstFileItem,
 import { createSessionStore, type Session } from './session.js';
 import { routeCommand, type CommandContext, type CommandResult } from './commands/router.js';
 import { claudeQuery, type QueryOptions } from './claude/provider.js';
+import { handleForegroundCodexCommand } from './codex/foreground-command.js';
+import { codexQuery } from './codex/provider.js';
+import { startCodexDesktopCompletionMonitor } from './codex/desktop-completion-monitor.js';
+import { isWindowsLocked } from './system/windows-lock.js';
 import { loadConfig, saveConfig } from './config.js';
 import { logger } from './logger.js';
 import { DATA_DIR } from './constants.js';
@@ -266,6 +271,15 @@ async function runDaemon(): Promise<void> {
   const sender = createSender(api, account.accountId);
   const sharedCtx = { lastContextToken: '' };
   const activeControllers = new Map<string, AbortController>();
+  const bridgeThreadIds = new Set<string>();
+  const stopCodexDesktopMonitor = startCodexDesktopCompletionMonitor({
+    account,
+    session,
+    sessionStore,
+    sender,
+    getContextToken: () => sharedCtx.lastContextToken,
+    isBridgeThread: (threadId) => bridgeThreadIds.has(threadId),
+  });
 
   // -- Message queue for serial processing --
   const messageQueue: WeixinMessage[] = [];
@@ -276,7 +290,7 @@ async function runDaemon(): Promise<void> {
     processingQueue = true;
     while (messageQueue.length > 0) {
       const msg = messageQueue.shift()!;
-      await handleMessage(msg, account!, session, sessionStore, sender, config, sharedCtx, activeControllers, messageQueue);
+      await handleMessage(msg, account!, session, sessionStore, sender, config, sharedCtx, activeControllers, messageQueue, bridgeThreadIds);
     }
     processingQueue = false;
   }
@@ -320,6 +334,7 @@ async function runDaemon(): Promise<void> {
 
   function shutdown(): void {
     logger.info('Shutting down...');
+    stopCodexDesktopMonitor();
     monitor.stop();
     process.exit(0);
   }
@@ -347,6 +362,7 @@ async function handleMessage(
   sharedCtx: { lastContextToken: string },
   activeControllers: Map<string, AbortController>,
   messageQueue: WeixinMessage[],
+  bridgeThreadIds: Set<string>,
 ): Promise<void> {
   // Filter: only user messages with required fields
   if (msg.message_type !== MessageType.USER) return;
@@ -361,6 +377,31 @@ async function handleMessage(
   const userText = extractTextFromItems(msg.item_list);
   const imageItem = extractFirstImageUrl(msg.item_list);
   const fileItem = extractFirstFileItem(msg.item_list);
+
+  const foregroundCommand = await handleForegroundCodexCommand(userText);
+  if (foregroundCommand.handled && !imageItem && !fileItem) {
+    if (foregroundCommand.reply) {
+      await sender.sendText(fromUserId, contextToken, foregroundCommand.reply);
+    }
+    return;
+  }
+
+  const preference = extractUserPreference(userText);
+  if (preference && !imageItem && !fileItem) {
+    sessionStore.addUserPreference(session, preference);
+    sessionStore.save(account.accountId, session);
+    await sender.sendText(fromUserId, contextToken, '记住了，后面我会按这个方式调整。');
+    return;
+  }
+
+  const instantReply = getInstantReply(userText, session);
+  if (instantReply && !imageItem && !fileItem) {
+    sessionStore.addChatMessage(session, 'user', userText);
+    sessionStore.addChatMessage(session, 'assistant', instantReply);
+    sessionStore.save(account.accountId, session);
+    await sender.sendText(fromUserId, contextToken, instantReply);
+    return;
+  }
 
   // Drop non-command messages while processing (priority commands already handled upstream)
   if (session.state === 'processing' && !userText.startsWith('/')) {
@@ -394,7 +435,7 @@ async function handleMessage(
     if (result.handled && result.claudePrompt) {
       await sendToClaude(
         result.claudePrompt, imageItem, fileItem, fromUserId, contextToken,
-        account, session, sessionStore, sender, config, activeControllers,
+        account, session, sessionStore, sender, config, activeControllers, bridgeThreadIds,
       );
       return;
     }
@@ -416,14 +457,131 @@ async function handleMessage(
     return;
   }
 
+  const promptText = buildFollowUpPrompt(userText, session);
   await sendToClaude(
-    userText, imageItem, fileItem, fromUserId, contextToken,
-    account, session, sessionStore, sender, config, activeControllers,
+    promptText, imageItem, fileItem, fromUserId, contextToken,
+    account, session, sessionStore, sender, config, activeControllers, bridgeThreadIds,
+    userText,
   );
 }
 
 function extractTextFromItems(items: NonNullable<WeixinMessage['item_list']>): string {
   return items.map((item) => extractText(item)).filter(Boolean).join('\n');
+}
+
+function extractUserPreference(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.startsWith('/')) return undefined;
+  if (trimmed.length > 500) return undefined;
+
+  const hasPreferenceCue = /(?:以后|后续|接下来|下次|之后|你以后|你后面|你要|你应该|你别|不要再|别再|不用|不需要|不必|记住|注意|改成|调整成)/.test(trimmed);
+  const hasStyleCue = /(?:回复|回答|说话|语气|口吻|思考|理解|识别|判断|进度|反馈|上下文|记忆|联系|连续|分段|慢点|快点|简短|少一点|别啰嗦|不要废话|像.*聊天|微信|备注|自我介绍|少打扰)/.test(trimmed);
+  const hasCorrectionCue = /(?:没有|没|不对|不是|不太对|漏了|忘了|缺少|不行|不够|没做到|没识别)/.test(trimmed);
+
+  if (hasPreferenceCue && hasStyleCue) return trimmed;
+  if (hasCorrectionCue && hasStyleCue) return trimmed;
+
+  const directRule = trimmed.match(/^(?:记住|注意|规则)[:：\s]+([\s\S]{2,})$/);
+  return directRule?.[1]?.trim();
+}
+
+function getInstantReply(text: string, session: Session): string | undefined {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.startsWith('/')) return undefined;
+  if (trimmed.length > 80) return undefined;
+
+  if (/^(hi|hello|hey|你好|在吗|在不在|哈喽|哈罗|嗨)$/i.test(trimmed)) {
+    return '在，你说。';
+  }
+  if (/^(ok|好|好的|收到|嗯|行|可以|明白|了解)$/i.test(trimmed)) {
+    return '好。';
+  }
+  if (/^(谢谢|谢了|辛苦了|thx|thanks)$/i.test(trimmed)) {
+    return '不客气。';
+  }
+  if (/(自我介绍|介绍一下你自己|你是谁)/.test(trimmed)) {
+    return '我是 Codex，可以帮你处理这台电脑上的项目、代码、文档和文件。';
+  }
+  if (/(当前.*后端|现在.*后端|provider|通道).*(是什么|哪个|状态)?/i.test(trimmed)) {
+    return `当前微信桥接后端是 ${(loadConfig().aiProvider || 'codex').toUpperCase()}。`;
+  }
+  if (/(记住了吗|记得吗|偏好|规则).*(吗|有哪些|是什么)?/.test(trimmed)) {
+    const prefs = (Array.isArray(session.userPreferences) ? session.userPreferences : []).filter(Boolean);
+    if (prefs.length === 0) return '现在还没有保存偏好。';
+    return `记得，当前主要有：\n${prefs.slice(-6).map((item, index) => `${index + 1}. ${item}`).join('\n')}`;
+  }
+
+  return undefined;
+}
+
+function buildPreferenceSystemPrompt(session: Session): string | undefined {
+  const preferences = (Array.isArray(session.userPreferences) ? session.userPreferences : [])
+    .map(item => item.trim())
+    .filter(Boolean);
+  if (preferences.length === 0) return undefined;
+  return [
+    '用户在微信里明确要求你后续遵守这些沟通偏好。它们是后台规则，不要主动复述给用户：',
+    ...preferences.map((item, index) => `${index + 1}. ${item}`),
+  ].join('\n');
+}
+
+export function summarizeCompletionForWechat(text: string, maxLen = 180): string {
+  const cleaned = text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return '已完成。';
+  return cleaned.length <= maxLen ? cleaned : `${cleaned.slice(0, maxLen - 1)}…`;
+}
+
+export function isLikelyCompletionFollowUp(text: string, session: Session): boolean {
+  const trimmed = text.trim();
+  const last = session.lastCompletionContext;
+  if (!trimmed || trimmed.startsWith('/') || !last) return false;
+  if (Date.now() - last.completedAt > 12 * 60 * 60 * 1000) return false;
+  if (trimmed.length > 800) return false;
+  if (isLikelyNewTopicRequest(trimmed)) return false;
+
+  return /^(?:那|然后|继续|接着|再|帮我|把|改成|调整|优化|补充|按|就|可以|不对|不是|重新|还是|另外)/.test(trimmed)
+    || /(?:基于|按照|上一条|刚才|这个|上面|前面|继续|改成|调整|优化|补充|重做|重新|修复|继续做|下一步)/.test(trimmed);
+}
+
+function isLikelyNewTopicRequest(text: string): boolean {
+  if (/(?:另一个|另外一个|其他|别的|换个|换一个|新问题|另外问|不是这个|不是上个|不是上一条|不是刚才)/.test(text)) {
+    return true;
+  }
+  if (/(?:我问的是|我说的是|你理解错了|你找错了)/.test(text)) {
+    return true;
+  }
+  if (/(?:哪个|哪一个|某个|最近|有哪些).*(?:项目|对话|任务|进度|状态)/.test(text)) {
+    return true;
+  }
+  if (/(?:项目|对话|任务).*(?:进度|状态|怎么样|到哪了|完成了吗)/.test(text) && !/(?:上一条|刚才|这个|上面|前面)/.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+function buildFollowUpPrompt(text: string, session: Session): string {
+  if (!isLikelyCompletionFollowUp(text, session)) return text;
+  const last = session.lastCompletionContext!;
+  return [
+    '用户正在基于上一条微信完成通知继续要求调整，请把它当成同一个任务的后续要求处理。',
+    '',
+    '上一任务：',
+    last.userText || last.prompt,
+    '',
+    '上一结果摘要：',
+    last.resultSummary,
+    '',
+    '用户现在的回复：',
+    text,
+  ].join('\n');
+}
+
+function isCodexOfflineError(error: string): boolean {
+  return /(?:Failed to spawn codex|codex exited with code|ENOENT|EACCES|Access is denied|The system cannot find the file specified)/i.test(error);
 }
 
 async function sendToClaude(
@@ -438,6 +596,8 @@ async function sendToClaude(
   sender: ReturnType<typeof createSender>,
   config: ReturnType<typeof loadConfig>,
   activeControllers: Map<string, AbortController>,
+  bridgeThreadIds: Set<string>,
+  originalUserText = userText,
 ): Promise<void> {
   // Set state to processing
   session.state = 'processing';
@@ -451,7 +611,7 @@ async function sendToClaude(
   let flushTimer: ReturnType<typeof setInterval> | undefined;
 
   // Record user message in chat history
-  sessionStore.addChatMessage(session, 'user', userText || '(图片)');
+  sessionStore.addChatMessage(session, 'user', originalUserText || '(图片)');
 
   // Start typing indicator (keepalive until stopTyping is called)
   const stopTyping = sender.startTyping(fromUserId, contextToken);
@@ -555,6 +715,7 @@ async function sendToClaude(
       model: session.model,
       systemPrompt: [
         '你正在通过微信与用户对话，不是在终端里。不要让用户去终端操作。如果用户需要文件，直接输出文件地址就行，会自动识别解析推送文件到用户的微信中。',
+        buildPreferenceSystemPrompt(session),
         config.systemPrompt,
       ].filter(Boolean).join('\n'),
       abortController,
@@ -578,10 +739,13 @@ async function sendToClaude(
       },
     };
 
-    let result = await claudeQuery(queryOptions);
+    const provider = config.aiProvider || 'codex';
+    let result = provider === 'claude'
+      ? await claudeQuery(queryOptions)
+      : await codexQuery(queryOptions);
 
     // If resume failed (e.g. corrupted session), retry without resume
-    if (result.error && queryOptions.resume) {
+    if (provider === 'claude' && result.error && queryOptions.resume) {
       logger.warn('Resume failed, retrying without resume', { error: result.error, sessionId: queryOptions.resume });
       queryOptions.resume = undefined;
       session.sdkSessionId = undefined;
@@ -594,11 +758,14 @@ async function sendToClaude(
     clearInterval(flushTimer);
     await flushText();
 
+    let completionSummary = '';
+
     // Send result back to WeChat
     if (result.text) {
       if (result.error) {
         logger.warn('Claude query had error but returned text, using text', { error: result.error });
       }
+      completionSummary = summarizeCompletionForWechat(result.text);
       sessionStore.addChatMessage(session, 'assistant', result.text);
       // If nothing was streamed at all (e.g. streaming not supported), send full text now
       if (!anySent) {
@@ -608,16 +775,43 @@ async function sendToClaude(
         }
       }
     } else if (result.error) {
-      logger.error('Claude query error', { error: result.error });
-      await sender.sendText(fromUserId, contextToken, 'Claude 处理请求时出错，请稍后重试。');
+      logger.error('AI query error', { provider, error: result.error });
+      const reply = provider === 'codex' && isCodexOfflineError(result.error)
+        ? 'Codex 已离线'
+        : `${provider === 'claude' ? 'Claude' : 'Codex'} 处理请求时出错，请稍后重试。`;
+      await sender.sendText(fromUserId, contextToken, reply);
     } else if (!anySent) {
-      await sender.sendText(fromUserId, contextToken, 'Claude 无返回内容（可能因权限被拒而终止）');
+      const reply = provider === 'codex'
+        ? 'Codex 已离线'
+        : 'Claude 无返回内容（可能因权限被拒而终止）';
+      await sender.sendText(fromUserId, contextToken, reply);
+    }
+
+    if (provider === 'codex' && result.sessionId) {
+      bridgeThreadIds.add(result.sessionId);
     }
 
     // Update session with new SDK session ID
     session.sdkSessionId = result.sessionId || undefined;
     session.state = 'idle';
+    if (completionSummary) {
+      session.lastCompletionContext = {
+        userText: originalUserText,
+        prompt,
+        resultSummary: completionSummary,
+        resultText: result.text,
+        fromUserId,
+        contextToken,
+        completedAt: Date.now(),
+        provider,
+        sessionId: result.sessionId || undefined,
+      };
+    }
     sessionStore.save(account.accountId, session);
+
+    if (completionSummary && await isWindowsLocked()) {
+      await sender.sendText(fromUserId, contextToken, `Codex 任务完成：${completionSummary}`);
+    }
 
     // Auto-push deliverable files mentioned in Claude's response
     if (result.text) {
@@ -689,19 +883,21 @@ async function sendToClaude(
 // CLI
 // ---------------------------------------------------------------------------
 
-const command = process.argv[2];
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const command = process.argv[2];
 
-if (command === 'setup') {
-  runSetup().catch((err) => {
-    logger.error('Setup failed', { error: err instanceof Error ? err.message : String(err) });
-    console.error('设置失败:', err);
-    process.exit(1);
-  });
-} else {
-  // 'start' or no argument
-  runDaemon().catch((err) => {
-    logger.error('Daemon start failed', { error: err instanceof Error ? err.message : String(err) });
-    console.error('启动失败:', err);
-    process.exit(1);
-  });
+  if (command === 'setup') {
+    runSetup().catch((err) => {
+      logger.error('Setup failed', { error: err instanceof Error ? err.message : String(err) });
+      console.error('设置失败:', err);
+      process.exit(1);
+    });
+  } else {
+    // 'start' or no argument
+    runDaemon().catch((err) => {
+      logger.error('Daemon start failed', { error: err instanceof Error ? err.message : String(err) });
+      console.error('启动失败:', err);
+      process.exit(1);
+    });
+  }
 }

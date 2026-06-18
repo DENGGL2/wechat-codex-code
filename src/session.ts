@@ -14,6 +14,18 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface CompletionContext {
+  userText: string;
+  prompt: string;
+  resultSummary: string;
+  resultText?: string;
+  fromUserId: string;
+  contextToken: string;
+  completedAt: number;
+  provider?: string;
+  sessionId?: string;
+}
+
 export interface Session {
   sdkSessionId?: string;
   previousSdkSessionId?: string;
@@ -22,6 +34,8 @@ export interface Session {
   state: SessionState;
   chatHistory: ChatMessage[];
   maxHistoryLength?: number;
+  userPreferences?: string[];
+  lastCompletionContext?: CompletionContext;
 }
 
 const DEFAULT_MAX_HISTORY = 100;
@@ -39,6 +53,7 @@ export function createSessionStore() {
       state: 'idle',
       chatHistory: [],
       maxHistoryLength: DEFAULT_MAX_HISTORY,
+      userPreferences: [],
     });
 
     // Backward compatibility: ensure chatHistory exists
@@ -47,6 +62,14 @@ export function createSessionStore() {
     }
     if (!session.maxHistoryLength) {
       session.maxHistoryLength = DEFAULT_MAX_HISTORY;
+    }
+    if (!Array.isArray(session.userPreferences)) {
+      session.userPreferences = typeof session.userPreferences === 'string'
+        ? [session.userPreferences]
+        : [];
+    }
+    if (!session.userPreferences) {
+      session.userPreferences = [];
     }
 
     return session;
@@ -73,6 +96,8 @@ export function createSessionStore() {
       state: 'idle',
       chatHistory: [],
       maxHistoryLength: currentSession?.maxHistoryLength || DEFAULT_MAX_HISTORY,
+      userPreferences: currentSession?.userPreferences || [],
+      lastCompletionContext: undefined,
     };
     save(accountId, session);
     return session;
@@ -115,5 +140,19 @@ export function createSessionStore() {
     return lines.join('\n');
   }
 
-  return { load, save, clear, addChatMessage, getChatHistoryText };
+  function addUserPreference(session: Session, preference: string): void {
+    const normalized = preference.trim();
+    if (!normalized) return;
+    const current = Array.isArray(session.userPreferences)
+      ? session.userPreferences
+      : typeof session.userPreferences === 'string'
+        ? [session.userPreferences]
+        : [];
+    session.userPreferences = [
+      ...current.filter(item => item !== normalized),
+      normalized,
+    ].slice(-20);
+  }
+
+  return { load, save, clear, addChatMessage, getChatHistoryText, addUserPreference };
 }

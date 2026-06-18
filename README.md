@@ -10,6 +10,8 @@
   <a href="README_en.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=flat-square" alt="English"></a>
 </p>
 
+> 本项目基于 [Wechat-ggGitHub/wechat-claude-code](https://github.com/Wechat-ggGitHub/wechat-claude-code) 修改，遵循原项目 MIT License。
+
 扫码绑定微信后，你的微信里会多出一个好友。给它发消息，消息会自动转发给你电脑上运行的 Claude Code，回复也会实时推送到微信。支持文字、图片、语音、文件的收发。
 
 <img width="3018" height="1216" alt="ScreenShot_2026-06-10_211251_410" src="https://github.com/user-attachments/assets/2ba4c53b-9c63-4ffd-bd0a-71935a6eabec" />
@@ -83,6 +85,7 @@ npm run daemon -- logs     # 查看日志
 | `/clear` | 清除当前会话，开始新对话 |
 | `/stop` | 停止当前任务 |
 | `/model <名称>` | 切换 Claude 模型 |
+| `/provider <codex\|claude>` | 切换 AI 后端 |
 | `/prompt <内容>` | 设置系统提示词（如"用中文回答"） |
 | `/cwd <路径>` | 切换工作目录 |
 | `/skills` | 查看已安装的 Skill |
@@ -92,6 +95,24 @@ npm run daemon -- logs     # 查看日志
 | `/reset` | 完全重置（包括工作目录等设置） |
 | `/undo [数量]` | 撤销最近几条对话 |
 | `/<skill> [参数]` | 触发任意已安装的 Skill |
+
+## Codex 支持
+
+本分支支持在微信中切换 Claude / Codex 后端：
+
+```bash
+/provider codex
+/provider claude
+```
+
+Codex 模式会调用本机 Codex CLI。微信里也可以把文字流转到当前前台 Codex 输入框：
+
+```text
+帮我输入这里是要填入 Codex 输入框的内容
+/input 这里是要填入 Codex 输入框的内容
+```
+
+该功能只填入，不会自动发送。Windows 下还会在电脑锁屏时把 Codex 任务完成摘要推送到微信。
 
 ## 工作原理
 

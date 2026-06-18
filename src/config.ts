@@ -7,6 +7,7 @@ export interface Config {
   workingDirectory: string;
   model?: string;
   systemPrompt?: string;
+  aiProvider?: 'codex' | 'claude';
 }
 
 const CONFIG_DIR = join(homedir(), ".wechat-claude-code");
@@ -24,6 +25,7 @@ export function loadConfig(): Config {
       workingDirectory: parsed.workingDirectory || DEFAULT_CONFIG.workingDirectory,
       model: parsed.model,
       systemPrompt: parsed.systemPrompt,
+      aiProvider: parsed.aiProvider === 'claude' ? 'claude' : 'codex',
     };
     mkdirSync(config.workingDirectory, { recursive: true });
     return config;
@@ -41,6 +43,7 @@ export function saveConfig(config: Config): void {
   };
   if (config.model) data.model = config.model;
   if (config.systemPrompt) data.systemPrompt = config.systemPrompt;
+  if (config.aiProvider) data.aiProvider = config.aiProvider;
   writeFileSync(CONFIG_PATH, JSON.stringify(data, null, 2) + "\n", "utf-8");
   if (process.platform !== "win32") {
     chmodSync(CONFIG_PATH, 0o600);

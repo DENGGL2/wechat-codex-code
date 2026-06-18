@@ -14,7 +14,7 @@ export function validateAccountId(accountId: string): void {
  */
 export function loadJson<T>(filePath: string, fallback: T): T {
   try {
-    const raw = readFileSync(filePath, "utf-8");
+    const raw = readFileSync(filePath, "utf-8").replace(/^\uFEFF/, "");
     return JSON.parse(raw) as T;
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
