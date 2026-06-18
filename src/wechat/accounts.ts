@@ -15,10 +15,11 @@ export interface AccountData {
 }
 
 const ACCOUNTS_DIR = join(homedir(), '.wechat-codex-code', 'accounts');
+const LEGACY_ACCOUNTS_DIR = join(homedir(), '.wechat-claude-code', 'accounts');
 
-function accountPath(accountId: string): string {
+function accountPath(accountId: string, baseDir = ACCOUNTS_DIR): string {
   validateAccountId(accountId);
-  return join(ACCOUNTS_DIR, `${accountId}.json`);
+  return join(baseDir, `${accountId}.json`);
 }
 
 /** Persist account credentials to disk. */
@@ -30,25 +31,38 @@ export function saveAccount(data: AccountData): void {
 
 /** Load account credentials by ID. Returns null if not found. */
 export function loadAccount(accountId: string): AccountData | null {
-  const filePath = accountPath(accountId);
+  let filePath = accountPath(accountId);
   const data = loadJson<AccountData | null>(filePath, null);
   if (data) {
     logger.info('Account loaded', { accountId });
+    return data;
   }
-  return data;
+
+  filePath = accountPath(accountId, LEGACY_ACCOUNTS_DIR);
+  const legacyData = loadJson<AccountData | null>(filePath, null);
+  if (legacyData) {
+    logger.info('Legacy account loaded', { accountId });
+  }
+  return legacyData;
 }
 
 /** Load the most recently modified account. Returns null if none exist. */
 export function loadLatestAccount(): AccountData | null {
+  const account = loadLatestAccountFromDir(ACCOUNTS_DIR);
+  if (account) return account;
+  return loadLatestAccountFromDir(LEGACY_ACCOUNTS_DIR);
+}
+
+function loadLatestAccountFromDir(accountsDir: string): AccountData | null {
   try {
-    const files = readdirSync(ACCOUNTS_DIR).filter((f) => f.endsWith('.json'));
+    const files = readdirSync(accountsDir).filter((f) => f.endsWith('.json'));
     if (files.length === 0) return null;
 
     let latestFile = files[0];
     let latestMtime = 0;
 
     for (const file of files) {
-      const stat = statSync(join(ACCOUNTS_DIR, file));
+      const stat = statSync(join(accountsDir, file));
       if (stat.mtimeMs > latestMtime) {
         latestMtime = stat.mtimeMs;
         latestFile = file;
@@ -56,7 +70,11 @@ export function loadLatestAccount(): AccountData | null {
     }
 
     const accountId = latestFile.replace(/\.json$/, '');
-    return loadAccount(accountId);
+    const data = loadJson<AccountData | null>(accountPath(accountId, accountsDir), null);
+    if (data) {
+      logger.info(accountsDir === LEGACY_ACCOUNTS_DIR ? 'Legacy account loaded' : 'Account loaded', { accountId });
+    }
+    return data;
   } catch {
     // Directory does not exist or is unreadable
     return null;
