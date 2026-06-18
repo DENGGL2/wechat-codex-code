@@ -62,7 +62,7 @@ A QR code will pop up — scan it with WeChat.
 npm run daemon -- start
 ```
 
-On macOS, this registers a launchd agent for auto-start on boot and auto-restart on crash.
+Once started, the service listens for WeChat messages and forwards tasks to local Codex.
 
 ### 3. Start chatting
 
@@ -88,8 +88,7 @@ Send these directly in the WeChat chat:
 | `/help` | Show available commands |
 | `/clear` | Clear current session, start fresh |
 | `/stop` | Stop current task |
-| `/model <name>` | Switch Claude model |
-| `/provider <codex\|claude>` | Switch AI backend |
+| `/provider codex` | Switch to the Codex backend |
 | `/prompt <text>` | Set a system prompt (e.g. "reply in Chinese") |
 | `/cwd <path>` | Switch working directory |
 | `/skills` | List installed Skills |
@@ -102,11 +101,10 @@ Send these directly in the WeChat chat:
 
 ## Codex Support
 
-This branch can switch between Claude and Codex backends from WeChat:
+Switch to the Codex backend from WeChat:
 
 ```bash
 /provider codex
-/provider claude
 ```
 
 Codex mode calls the local Codex CLI. You can also dictate or type text in WeChat and paste it into the foreground Codex input box:
@@ -133,7 +131,6 @@ The daemon long-polls WeChat for new messages, forwards them to local Codex, and
 ## Roadmap
 
 - **Message queue optimization** — Consecutive messages can produce mixed-up replies. Working on a better queuing strategy. Ideas welcome.
-- **Prevent sleep** — Use macOS `caffeinate` to keep the system awake, so closing the lid doesn't interrupt the service.
 - **Resume desktop session** — Chat on your computer for a while, then continue from WeChat on the go. The bridge is being improved to keep the same workspace and task context as much as possible.
 
 ---
@@ -144,8 +141,6 @@ The daemon long-polls WeChat for new messages, forwards them to local Codex, and
 - Windows, macOS, or Linux
 - A personal WeChat account
 - Codex CLI or Codex desktop installed and authenticated
-
-> **Note:** If you keep the Claude backend enabled too, switch providers from WeChat with `/provider codex|claude`.
 
 ## Data Directory
 

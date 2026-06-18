@@ -10,7 +10,7 @@ description: 微信消息桥接 - 在微信中与本机 Codex 对话。支持文
 ## 前置条件
 
 - Node.js >= 18
-- macOS（daemon 使用 launchd 管理）
+- Windows、macOS 或 Linux
 - 个人微信账号（需扫码绑定）
 - 已安装 Codex CLI 或 Codex 桌面端
 
@@ -105,7 +105,7 @@ cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
   /help    显示帮助
   /clear   清除当前会话，开始新对话
   /status  查看当前会话状态
-  /provider 切换 codex/claude 后端
+  /provider 切换到 Codex 后端
   /prompt  设置系统提示词
   /cwd     切换工作目录
   /skills  查看已安装的 skill
@@ -120,7 +120,7 @@ cd ~/.claude/skills/wechat-codex-code && npm run daemon -- status
 | 命令 | 执行 | 说明 |
 |------|------|------|
 | setup | `npm run setup` | 首次安装向导：生成 QR 码 → 微信扫码 → 配置工作目录 |
-| start | `npm run daemon -- start` | 启动 launchd 守护进程（开机自启、自动重启） |
+| start | `npm run daemon -- start` | 启动微信桥接服务 |
 | stop | `npm run daemon -- stop` | 停止守护进程 |
 | restart | `npm run daemon -- restart` | 重启守护进程 |
 | status | `npm run daemon -- status` | 查看运行状态 |

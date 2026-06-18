@@ -13,8 +13,6 @@
 
 扫码绑定微信后，你可以通过微信把文字、语音、图片、文件转给本机 Codex 处理，结果会回到微信。也支持把微信口述内容填入当前前台 Codex 输入框、任务完成后推送简要结果，以及在高风险操作前等待确认。
 
-<img width="3018" height="1216" alt="ScreenShot_2026-06-10_211251_410" src="https://github.com/user-attachments/assets/2ba4c53b-9c63-4ffd-bd0a-71935a6eabec" />
-
 ## 核心亮点
 | | |
 |---|---|
@@ -59,7 +57,7 @@ npm run setup
 npm run daemon -- start
 ```
 
-macOS 下自动注册 launchd，开机自启、崩溃自动重启。
+服务启动后会监听微信消息，并把任务转给本机 Codex 处理。
 
 ### 3. 开始聊天
 
@@ -83,8 +81,7 @@ npm run daemon -- logs     # 查看日志
 | `/help` | 显示帮助 |
 | `/clear` | 清除当前会话，开始新对话 |
 | `/stop` | 停止当前任务 |
-| `/model <名称>` | 切换 Claude 模型 |
-| `/provider <codex\|claude>` | 切换 AI 后端 |
+| `/provider codex` | 切换到 Codex 后端 |
 | `/prompt <内容>` | 设置系统提示词（如"用中文回答"） |
 | `/cwd <路径>` | 切换工作目录 |
 | `/skills` | 查看已安装的 Skill |
@@ -95,13 +92,12 @@ npm run daemon -- logs     # 查看日志
 | `/undo [数量]` | 撤销最近几条对话 |
 | `/<skill> [参数]` | 触发任意已安装的 Skill |
 
-## Codex 支持
+## Codex 功能
 
-本分支支持在微信中切换 Claude / Codex 后端：
+切换到 Codex 后端：
 
 ```bash
 /provider codex
-/provider claude
 ```
 
 Codex 模式会调用本机 Codex CLI。微信里也可以把文字流转到当前前台 Codex 输入框：
@@ -124,7 +120,6 @@ Codex 模式会调用本机 Codex CLI。微信里也可以把文字流转到当�
 ## 后续计划
 
 - **消息队列优化** — 连续发多条指令时，回复容易串。正在研究更好的队列策略，也欢迎讨论。
-- **电脑休眠不中断** — 利用 macOS 的 `caffeinate` 命令阻止系统睡眠，合上盖子也能响应微信消息。
 - **接续电脑会话** — 在电脑上聊了很久，出门想接着聊。计划继续增强从当前电脑端 Codex 会话续聊的能力，工作空间和上下文尽量保持一致。
 
 ## 前置条件
@@ -133,8 +128,6 @@ Codex 模式会调用本机 Codex CLI。微信里也可以把文字流转到当�
 - Windows、macOS 或 Linux
 - 个人微信账号
 - 已安装 Codex CLI 或 Codex 桌面端，并完成登录/认证
-
-> **提示：** 如果同时保留 Claude 后端，也可以通过微信端 `/provider codex|claude` 切换。
 
 ## 数据目录
 
