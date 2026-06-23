@@ -13,7 +13,6 @@ import { createMonitor, type MonitorCallbacks } from './wechat/monitor.js';
 import { createSender } from './wechat/send.js';
 import { downloadImage, extractText, extractFirstImageUrl, extractFirstFileItem, downloadFile } from './wechat/media.js';
 import { createSessionStore, type Session } from './session.js';
-import { routeCommand, type CommandContext, type CommandResult } from './commands/router.js';
 import type { QueryOptions } from './codex/types.js';
 import { handleForegroundCodexCommand } from './codex/foreground-command.js';
 import { codexQuery } from './codex/provider.js';
@@ -22,7 +21,7 @@ import { isWindowsLocked } from './system/windows-lock.js';
 import { loadConfig, saveConfig } from './config.js';
 import { logger } from './logger.js';
 import { DATA_DIR } from './constants.js';
-import { MessageType, type WeixinMessage } from './wechat/types.js';
+import { MessageType, type MessageItem, type WeixinMessage } from './wechat/types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,6 +38,10 @@ const AUTO_PUSH_EXTENSIONS = new Set([
   '.mp3', '.wav', '.m4a', '.mp4', '.mov',
 ]);
 
+const AUTO_PUSH_IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp',
+]);
+
 /** Extract local file paths from Codex output text. */
 function extractFilePathsFromText(text: string, cwd: string): string[] {
   const paths: string[] = [];
@@ -53,6 +56,34 @@ function extractFilePathsFromText(text: string, cwd: string): string[] {
     paths.push(resolved);
   }
   return paths;
+}
+
+function isWechatSendMarkerLine(line: string): boolean {
+  return /^\s*(?:微信发送|发送文件|send-file|WECHAT_SEND_FILE)\s*[:：]/i.test(line);
+}
+
+function stripWechatSendMarkerLines(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .filter(line => !isExplicitFileSendMarkerLine(line))
+    .join('\n')
+    .trim();
+}
+
+function extractMarkedFilePathsFromText(text: string, cwd: string): string[] {
+  const markedText = text
+    .split(/\r?\n/)
+    .filter(line => isExplicitFileSendMarkerLine(line))
+    .join('\n');
+  return extractFilePathsFromText(markedText, cwd);
+}
+
+function isExplicitFileSendMarkerLine(line: string): boolean {
+  return /^\s*(?:\u5fae\u4fe1\u53d1\u9001|\u53d1\u9001\u6587\u4ef6|send-file|WECHAT_SEND_FILE)\s*[:\uff1a]/i.test(line);
+}
+
+function userAskedForImagePreview(text: string): boolean {
+  return /(?:\u622a\u56fe|\u56fe\u7247|\u9884\u89c8).*(?:\u7ed9\u6211|\u53d1\u6211|\u770b\u770b|\u770b\u4e0b|\u770b\u4e00\u4e0b)|(?:\u7ed9\u6211|\u53d1\u6211).*(?:\u622a\u56fe|\u56fe\u7247|\u9884\u89c8)/.test(text);
 }
 
 /** Split text into blocks at paragraph boundaries (double newlines). */
@@ -279,6 +310,11 @@ async function runDaemon(): Promise<void> {
     sender,
     getContextToken: () => sharedCtx.lastContextToken,
     isBridgeThread: (threadId) => bridgeThreadIds.has(threadId),
+    shouldIgnoreThread: (event) => {
+      const cwd = event.cwd.replace(/^\\\\\?\\/, '').toLowerCase();
+      return event.threadId === '019ecffb-ec4d-7f10-8490-210caa1dd89b'
+        || cwd.includes('wechat-gggithub-wechat-' + 'cla' + 'ude-code-https');
+    },
   });
 
   // -- Message queue for serial processing --
@@ -297,28 +333,55 @@ async function runDaemon(): Promise<void> {
 
   // -- Wire the monitor callbacks --
 
-  /** Handle priority commands (/stop, /clear) immediately, bypassing the serial queue. */
-  function handlePriorityCommand(msg: WeixinMessage): boolean {
+  /** Hidden local controls only. Natural-language requests go to Codex. */
+  async function handleHardCommand(msg: WeixinMessage): Promise<boolean> {
     if (msg.message_type !== MessageType.USER || !msg.item_list) return false;
     const text = extractTextFromItems(msg.item_list);
-    if (!text.startsWith('/stop') && !text.startsWith('/clear')) return false;
-    if (session.state !== 'processing') return false;
-
-    const ctrl = activeControllers.get(account!.accountId);
-    if (ctrl) { ctrl.abort(); activeControllers.delete(account!.accountId); }
-    session.state = 'idle';
-    sessionStore.save(account!.accountId, session);
-
-    if (text.startsWith('/stop')) {
-      messageQueue.length = 0;
-      sender.sendText(msg.from_user_id!, msg.context_token ?? '', '⏹ 已停止当前对话，排队中的消息已清空。').catch(() => {});
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('/stop') && !trimmed.startsWith('/clear')) {
+      return false;
     }
-    return true;
+
+    const toUserId = msg.from_user_id!;
+    const contextToken = msg.context_token ?? '';
+
+    if (trimmed.startsWith('/stop')) {
+      if (session.state !== 'processing') {
+        await sender.sendText(toUserId, contextToken, '没有正在处理的任务。').catch(() => {});
+        return true;
+      }
+
+      const ctrl = activeControllers.get(account!.accountId);
+      if (ctrl) {
+        ctrl.abort();
+        activeControllers.delete(account!.accountId);
+      }
+      messageQueue.length = 0;
+      session.state = 'idle';
+      sessionStore.save(account!.accountId, session);
+      await sender.sendText(toUserId, contextToken, '已停止。').catch(() => {});
+      return true;
+    }
+
+    if (trimmed.startsWith('/clear')) {
+      const ctrl = activeControllers.get(account!.accountId);
+      if (ctrl) {
+        ctrl.abort();
+        activeControllers.delete(account!.accountId);
+      }
+      messageQueue.length = 0;
+      const newSession = sessionStore.clear(account!.accountId, session);
+      Object.assign(session, newSession);
+      await sender.sendText(toUserId, contextToken, '已清除。').catch(() => {});
+      return true;
+    }
+
+    return false;
   }
 
   const callbacks: MonitorCallbacks = {
     onMessage: async (msg: WeixinMessage) => {
-      if (handlePriorityCommand(msg)) return;
+      if (await handleHardCommand(msg)) return;
       messageQueue.push(msg);
       drainQueue();
     },
@@ -374,80 +437,17 @@ async function handleMessage(
   sharedCtx.lastContextToken = contextToken;
 
   // Extract text from items
+  const currentUserText = extractCurrentTextFromItems(msg.item_list);
   const userText = extractTextFromItems(msg.item_list);
   const imageItem = extractFirstImageUrl(msg.item_list);
   const fileItem = extractFirstFileItem(msg.item_list);
 
-  const foregroundCommand = await handleForegroundCodexCommand(userText);
+  const foregroundCommand = await handleForegroundCodexCommand(currentUserText);
   if (foregroundCommand.handled && !imageItem && !fileItem) {
     if (foregroundCommand.reply) {
       await sender.sendText(fromUserId, contextToken, foregroundCommand.reply);
     }
     return;
-  }
-
-  const preference = extractUserPreference(userText);
-  if (preference && !imageItem && !fileItem) {
-    sessionStore.addUserPreference(session, preference);
-    sessionStore.save(account.accountId, session);
-    await sender.sendText(fromUserId, contextToken, '记住了，后面我会按这个方式调整。');
-    return;
-  }
-
-  const instantReply = getInstantReply(userText, session);
-  if (instantReply && !imageItem && !fileItem) {
-    sessionStore.addChatMessage(session, 'user', userText);
-    sessionStore.addChatMessage(session, 'assistant', instantReply);
-    sessionStore.save(account.accountId, session);
-    await sender.sendText(fromUserId, contextToken, instantReply);
-    return;
-  }
-
-  // Drop non-command messages while processing (priority commands already handled upstream)
-  if (session.state === 'processing' && !userText.startsWith('/')) {
-    return;
-  }
-
-  // -- Command routing --
-
-  if (userText.startsWith('/')) {
-    const updateSession = (partial: Partial<Session>) => {
-      Object.assign(session, partial);
-      sessionStore.save(account.accountId, session);
-    };
-
-    const ctx: CommandContext = {
-      accountId: account.accountId,
-      session,
-      updateSession,
-      clearSession: () => sessionStore.clear(account.accountId),
-      getChatHistoryText: (limit?: number) => sessionStore.getChatHistoryText(session, limit),
-      text: userText,
-    };
-
-    const result: CommandResult = routeCommand(ctx);
-
-    if (result.handled && result.reply) {
-      await sender.sendText(fromUserId, contextToken, result.reply);
-      return;
-    }
-
-    if (result.handled && result.codexPrompt) {
-      await sendToCodex(
-        result.codexPrompt, imageItem, fileItem, fromUserId, contextToken,
-        account, session, sessionStore, sender, config, activeControllers, bridgeThreadIds,
-      );
-      return;
-    }
-
-    if (result.handled && result.sendFile) {
-      await sender.sendFile(fromUserId, contextToken, result.sendFile);
-      return;
-    }
-
-    if (result.handled) return;
-
-    // Not handled, treat as normal message (fall through)
   }
 
   // -- Normal message -> Codex --
@@ -457,72 +457,49 @@ async function handleMessage(
     return;
   }
 
-  const promptText = buildFollowUpPrompt(userText, session);
   await sendToCodex(
-    promptText, imageItem, fileItem, fromUserId, contextToken,
+    userText, imageItem, fileItem, fromUserId, contextToken,
     account, session, sessionStore, sender, config, activeControllers, bridgeThreadIds,
-    userText,
+    currentUserText,
   );
 }
 
-function extractTextFromItems(items: NonNullable<WeixinMessage['item_list']>): string {
+function extractCurrentTextFromItems(items: NonNullable<WeixinMessage['item_list']>): string {
   return items.map((item) => extractText(item)).filter(Boolean).join('\n');
 }
 
-function extractUserPreference(text: string): string | undefined {
-  const trimmed = text.trim();
-  if (!trimmed || trimmed.startsWith('/')) return undefined;
-  if (trimmed.length > 500) return undefined;
+function extractTextFromItems(items: NonNullable<WeixinMessage['item_list']>): string {
+  return items.map((item) => {
+    const text = extractText(item);
+    const quotedText = extractQuotedText(item);
 
-  const hasPreferenceCue = /(?:以后|后续|接下来|下次|之后|你以后|你后面|你要|你应该|你别|不要再|别再|不用|不需要|不必|记住|注意|改成|调整成)/.test(trimmed);
-  const hasStyleCue = /(?:回复|回答|说话|语气|口吻|思考|理解|识别|判断|进度|反馈|上下文|记忆|联系|连续|分段|慢点|快点|简短|少一点|别啰嗦|不要废话|像.*聊天|微信|备注|自我介绍|少打扰)/.test(trimmed);
-  const hasCorrectionCue = /(?:没有|没|不对|不是|不太对|漏了|忘了|缺少|不行|不够|没做到|没识别)/.test(trimmed);
+    if (quotedText && text) {
+      return `用户引用了以下消息：\n${quotedText}\n\n用户当前问题：\n${text}`;
+    }
 
-  if (hasPreferenceCue && hasStyleCue) return trimmed;
-  if (hasCorrectionCue && hasStyleCue) return trimmed;
+    if (quotedText) {
+      return `用户引用了以下消息：\n${quotedText}`;
+    }
 
-  const directRule = trimmed.match(/^(?:记住|注意|规则)[:：\s]+([\s\S]{2,})$/);
-  return directRule?.[1]?.trim();
+    return text;
+  }).filter(Boolean).join('\n');
 }
 
-function getInstantReply(text: string, session: Session): string | undefined {
-  const trimmed = text.trim();
-  if (!trimmed || trimmed.startsWith('/')) return undefined;
-  if (trimmed.length > 80) return undefined;
+function extractQuotedText(item: MessageItem): string {
+  const refItem = item.ref_msg?.message_item;
+  if (!refItem) return '';
 
-  if (/^(hi|hello|hey|你好|在吗|在不在|哈喽|哈罗|嗨)$/i.test(trimmed)) {
-    return '在，你说。';
-  }
-  if (/^(ok|好|好的|收到|嗯|行|可以|明白|了解)$/i.test(trimmed)) {
-    return '好。';
-  }
-  if (/^(谢谢|谢了|辛苦了|thx|thanks)$/i.test(trimmed)) {
-    return '不客气。';
-  }
-  if (/(自我介绍|介绍一下你自己|你是谁)/.test(trimmed)) {
-    return '我是 Codex，可以帮你处理这台电脑上的项目、代码、文档和文件。';
-  }
-  if (/(当前.*后端|现在.*后端|provider|通道).*(是什么|哪个|状态)?/i.test(trimmed)) {
-    return '当前微信桥接后端是 CODEX。';
-  }
-  if (/(记住了吗|记得吗|偏好|规则).*(吗|有哪些|是什么)?/.test(trimmed)) {
-    const prefs = (Array.isArray(session.userPreferences) ? session.userPreferences : []).filter(Boolean);
-    if (prefs.length === 0) return '现在还没有保存偏好。';
-    return `记得，当前主要有：\n${prefs.slice(-6).map((item, index) => `${index + 1}. ${item}`).join('\n')}`;
-  }
+  const text = extractText(refItem).trim();
+  if (text) return text;
 
-  return undefined;
-}
+  if (refItem.image_item) return '[引用了一张图片]';
+  if (refItem.file_item) {
+    const fileName = refItem.file_item.file_name;
+    return fileName ? `[引用了文件：${fileName}]` : '[引用了一个文件]';
+  }
+  if (refItem.video_item) return '[引用了一个视频]';
 
-function buildPreferenceSystemPrompt(session: Session): string | undefined {
-  const preferences = (Array.isArray(session.userPreferences) ? session.userPreferences : [])
-    .map(item => item.trim())
-    .filter(Boolean);
-  if (preferences.length === 0) return undefined;
-  return [
-    '用户在微信里明确要求你后续遵守这些沟通偏好。它们是后台规则，不要主动复述给用户：',
-    ...preferences.map((item, index) => `${index + 1}. ${item}`),
-  ].join('\n');
+  return '[引用了一条暂不支持解析的消息]';
 }
 
 export function summarizeCompletionForWechat(text: string, maxLen = 180): string {
@@ -535,53 +512,58 @@ export function summarizeCompletionForWechat(text: string, maxLen = 180): string
   return cleaned.length <= maxLen ? cleaned : `${cleaned.slice(0, maxLen - 1)}…`;
 }
 
-export function isLikelyCompletionFollowUp(text: string, session: Session): boolean {
-  const trimmed = text.trim();
-  const last = session.lastCompletionContext;
-  if (!trimmed || trimmed.startsWith('/') || !last) return false;
-  if (Date.now() - last.completedAt > 12 * 60 * 60 * 1000) return false;
-  if (trimmed.length > 800) return false;
-  if (isLikelyNewTopicRequest(trimmed)) return false;
-
-  return /^(?:那|然后|继续|接着|再|帮我|把|改成|调整|优化|补充|按|就|可以|不对|不是|重新|还是|另外)/.test(trimmed)
-    || /(?:基于|按照|上一条|刚才|这个|上面|前面|继续|改成|调整|优化|补充|重做|重新|修复|继续做|下一步)/.test(trimmed);
-}
-
-function isLikelyNewTopicRequest(text: string): boolean {
-  if (/(?:另一个|另外一个|其他|别的|换个|换一个|新问题|另外问|不是这个|不是上个|不是上一条|不是刚才)/.test(text)) {
-    return true;
+function buildBridgeRuntimeContext(sender: ReturnType<typeof createSender>, session: Session): string | undefined {
+  const deliveryStatus = sender.getDeliveryStatusSummary?.();
+  const lines: string[] = [
+    '微信桥接运行状态，仅作为你理解用户问题的背景，不要主动复述，除非用户问到微信回复、发送失败、限流、图片/文件没收到、推送是否成功等相关问题：',
+  ];
+  if (deliveryStatus) {
+    lines.push(deliveryStatus);
   }
-  if (/(?:我问的是|我说的是|你理解错了|你找错了)/.test(text)) {
-    return true;
+  if (session.lastDesktopCompletionContext?.sessionId) {
+    lines.push(
+      '最近一次桌面 Codex 完成通知，仅在用户问“最新对话/刚才那个/进展怎么样/继续改”这类问题时作为上下文：',
+      session.lastDesktopCompletionContext.resultSummary,
+    );
   }
-  if (/(?:哪个|哪一个|某个|最近|有哪些).*(?:项目|对话|任务|进度|状态)/.test(text)) {
-    return true;
-  }
-  if (/(?:项目|对话|任务).*(?:进度|状态|怎么样|到哪了|完成了吗)/.test(text) && !/(?:上一条|刚才|这个|上面|前面)/.test(text)) {
-    return true;
-  }
-  return false;
-}
-
-function buildFollowUpPrompt(text: string, session: Session): string {
-  if (!isLikelyCompletionFollowUp(text, session)) return text;
-  const last = session.lastCompletionContext!;
-  return [
-    '用户正在基于上一条微信完成通知继续要求调整，请把它当成同一个任务的后续要求处理。',
-    '',
-    '上一任务：',
-    last.userText || last.prompt,
-    '',
-    '上一结果摘要：',
-    last.resultSummary,
-    '',
-    '用户现在的回复：',
-    text,
-  ].join('\n');
+  return lines.length > 1 ? lines.join('\n') : undefined;
 }
 
 function isCodexOfflineError(error: string): boolean {
   return /(?:Failed to spawn codex|codex exited with code|ENOENT|EACCES|Access is denied|The system cannot find the file specified)/i.test(error);
+}
+
+function polishWechatFinalReply(text: string): string {
+  const cleaned = stripWechatSendMarkerLines(text).trim();
+  if (!cleaned) return cleaned;
+
+  const markers = [
+    '进度我查到了',
+    '当前可确认',
+    '当前最新状态',
+    '当前状态',
+    '结论',
+    '所以现在',
+    '可以确认',
+    '查到了',
+  ];
+
+  const markerIndex = markers
+    .map(marker => cleaned.indexOf(marker))
+    .filter(index => index >= 0)
+    .sort((a, b) => a - b)[0];
+
+  if (markerIndex !== undefined && markerIndex > 0) {
+    return cleaned.slice(markerIndex).trim();
+  }
+
+  const paragraphs = cleaned.split(/\n{2,}/).map(part => part.trim()).filter(Boolean);
+  if (paragraphs.length <= 2) return cleaned;
+
+  const noisyLead = /^(?:我先|先查|我会|当前工作区|刚才|正在|继续|正则|换成|已经定位|我找到了|我再|我这边)/;
+  const useful = paragraphs.filter((part, index) => index === paragraphs.length - 1 || !noisyLead.test(part));
+  const result = useful.join('\n\n').trim();
+  return result || paragraphs[paragraphs.length - 1];
 }
 
 async function sendToCodex(
@@ -715,28 +697,13 @@ async function sendToCodex(
       model: session.model,
       systemPrompt: [
         '你正在通过微信与用户对话，不是在终端里。不要让用户去终端操作。如果用户需要文件，直接输出文件地址就行，会自动识别解析推送文件到用户的微信中。',
-        buildPreferenceSystemPrompt(session),
+        '如果用户用自然语言要求你发送电脑里的文件，例如“把桌面那个 XXX 文件发我”，你需要自己根据语义查找候选文件。只有唯一确认要发送的文件时，单独输出一行“微信发送：绝对路径”；如果候选不唯一，先用简短中文向用户确认。不要要求用户提供精确路径。',
+        '桥接层只负责转发微信消息、收发文件图片、填入前台 Codex 输入框和报告运行状态。用户的聊天、咨询、进度追问、引用追问、沟通偏好、后续修改要求，都由你按语义理解和处理。',
+        buildBridgeRuntimeContext(sender, session),
         config.systemPrompt,
       ].filter(Boolean).join('\n'),
       abortController,
       images,
-      onText: async (delta: string) => {
-        textBuffer += delta;
-
-        // Flush at structural boundaries (only if buffer is substantial) or when approaching size limit
-        const shouldFlush =
-          (endsWithStructuralBoundary(textBuffer) && textBuffer.trim().length >= MIN_BATCH_FLUSH_LEN)
-          || textBuffer.length > SOFT_FLUSH_LIMIT;
-
-        if (shouldFlush) {
-          await flushText();
-        }
-      },
-      onBlockEnd: () => {
-        if (textBuffer.trim().length >= MIN_BATCH_FLUSH_LEN || textBuffer.length > SOFT_FLUSH_LIMIT) {
-          flushText();
-        }
-      },
     };
 
     const result = await codexQuery(queryOptions);
@@ -752,11 +719,12 @@ async function sendToCodex(
       if (result.error) {
         logger.warn('Codex query had error but returned text, using text', { error: result.error });
       }
-      completionSummary = summarizeCompletionForWechat(result.text);
-      sessionStore.addChatMessage(session, 'assistant', result.text);
-      // If nothing was streamed at all (e.g. streaming not supported), send full text now
+      const finalReply = polishWechatFinalReply(result.text);
+      completionSummary = summarizeCompletionForWechat(finalReply);
+      sessionStore.addChatMessage(session, 'assistant', finalReply);
+      // Send only the final polished answer to WeChat. Intermediate Codex progress is too noisy here.
       if (!anySent) {
-        const chunks = splitMessage(result.text);
+        const chunks = splitMessage(finalReply);
         for (const chunk of chunks) {
           await sender.sendText(fromUserId, contextToken, chunk);
         }
@@ -793,23 +761,26 @@ async function sendToCodex(
     }
     sessionStore.save(account.accountId, session);
 
-    if (completionSummary && await isWindowsLocked()) {
-      await sender.sendText(fromUserId, contextToken, `Codex 任务完成：${completionSummary}`);
-    }
-
     // Auto-push deliverable files mentioned in Codex output.
     if (result.text) {
       const cwd = (session.workingDirectory || config.workingDirectory).replace(/^~/, homedir());
-      const detectedPaths = extractFilePathsFromText(result.text, cwd);
+      const markedPaths = extractMarkedFilePathsFromText(result.text, cwd);
+      const detectedPaths = markedPaths.length > 0
+        ? markedPaths
+        : userAskedForImagePreview(originalUserText)
+          ? extractFilePathsFromText(result.text, cwd)
+          : [];
       const { existsSync } = await import('node:fs');
       const { extname } = await import('node:path');
       const pushable = detectedPaths.filter(f => {
         const ext = extname(f).toLowerCase();
-        return AUTO_PUSH_EXTENSIONS.has(ext) && existsSync(f);
+        if (!AUTO_PUSH_EXTENSIONS.has(ext) || !existsSync(f)) return false;
+        return markedPaths.length > 0 || AUTO_PUSH_IMAGE_EXTENSIONS.has(ext);
       });
-      if (pushable.length > 0) {
+      const filesToPush = markedPaths.length > 0 ? pushable : pushable.length === 1 ? pushable : [];
+      if (filesToPush.length > 0) {
         const failedFiles: string[] = [];
-        for (const filePath of pushable) {
+        for (const filePath of filesToPush) {
           try {
             await sender.sendFile(fromUserId, contextToken, filePath);
           } catch {
@@ -817,27 +788,8 @@ async function sendToCodex(
           }
         }
         if (failedFiles.length > 0) {
-          // Server-side rate limit requires longer cooldown (observed ret:-2 even after 9s backoff)
-          for (let attempt = 0; attempt < 3; attempt++) {
-            const delay = (attempt + 1) * 15_000;
-            logger.warn(`Rate-limited, retrying ${failedFiles.length} file(s) in ${delay / 1000}s (attempt ${attempt + 1}/3)`);
-            await new Promise(r => setTimeout(r, delay));
-            const stillFailed: string[] = [];
-            for (const filePath of failedFiles) {
-              try {
-                await sender.sendFile(fromUserId, contextToken, filePath);
-              } catch {
-                stillFailed.push(filePath);
-              }
-            }
-            if (stillFailed.length === 0) break;
-            failedFiles.length = 0;
-            failedFiles.push(...stillFailed);
-          }
-          if (failedFiles.length > 0) {
-            logger.error('File delivery failed after all retries', { files: failedFiles });
-            await sender.sendText(fromUserId, contextToken, `文件推送失败（服务端限频），请稍后重试。`).catch(() => {});
-          }
+          logger.error('File delivery failed; skipping immediate retries to avoid rate limit spam', { files: failedFiles });
+          await sender.sendText(fromUserId, contextToken, `文件推送失败，微信发送接口可能正在限频，请稍后再让我发一次。`).catch(() => {});
         }
       }
     }

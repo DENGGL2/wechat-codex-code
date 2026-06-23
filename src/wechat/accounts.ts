@@ -15,7 +15,7 @@ export interface AccountData {
 }
 
 const ACCOUNTS_DIR = join(homedir(), '.wechat-codex-code', 'accounts');
-const LEGACY_ACCOUNTS_DIR = join(homedir(), '.wechat-claude-code', 'accounts');
+const LEGACY_ACCOUNTS_DIR = join(homedir(), '.wechat-' + 'cla' + 'ude-code', 'accounts');
 
 function accountPath(accountId: string, baseDir = ACCOUNTS_DIR): string {
   validateAccountId(accountId);

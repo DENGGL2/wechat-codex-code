@@ -34,8 +34,8 @@ export interface Session {
   state: SessionState;
   chatHistory: ChatMessage[];
   maxHistoryLength?: number;
-  userPreferences?: string[];
   lastCompletionContext?: CompletionContext;
+  lastDesktopCompletionContext?: CompletionContext;
 }
 
 const DEFAULT_MAX_HISTORY = 100;
@@ -53,7 +53,6 @@ export function createSessionStore() {
       state: 'idle',
       chatHistory: [],
       maxHistoryLength: DEFAULT_MAX_HISTORY,
-      userPreferences: [],
     });
 
     // Backward compatibility: ensure chatHistory exists
@@ -63,15 +62,6 @@ export function createSessionStore() {
     if (!session.maxHistoryLength) {
       session.maxHistoryLength = DEFAULT_MAX_HISTORY;
     }
-    if (!Array.isArray(session.userPreferences)) {
-      session.userPreferences = typeof session.userPreferences === 'string'
-        ? [session.userPreferences]
-        : [];
-    }
-    if (!session.userPreferences) {
-      session.userPreferences = [];
-    }
-
     return session;
   }
 
@@ -96,8 +86,8 @@ export function createSessionStore() {
       state: 'idle',
       chatHistory: [],
       maxHistoryLength: currentSession?.maxHistoryLength || DEFAULT_MAX_HISTORY,
-      userPreferences: currentSession?.userPreferences || [],
       lastCompletionContext: undefined,
+      lastDesktopCompletionContext: undefined,
     };
     save(accountId, session);
     return session;
@@ -140,19 +130,5 @@ export function createSessionStore() {
     return lines.join('\n');
   }
 
-  function addUserPreference(session: Session, preference: string): void {
-    const normalized = preference.trim();
-    if (!normalized) return;
-    const current = Array.isArray(session.userPreferences)
-      ? session.userPreferences
-      : typeof session.userPreferences === 'string'
-        ? [session.userPreferences]
-        : [];
-    session.userPreferences = [
-      ...current.filter(item => item !== normalized),
-      normalized,
-    ].slice(-20);
-  }
-
-  return { load, save, clear, addChatMessage, getChatHistoryText, addUserPreference };
+  return { load, save, clear, addChatMessage, getChatHistoryText };
 }

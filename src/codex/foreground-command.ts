@@ -11,27 +11,21 @@ export function parseForegroundCodexInput(text: string): string | undefined {
   if (!trimmed) return undefined;
   if (isForegroundInputMetaQuestion(trimmed)) return undefined;
 
-  const command = trimmed.match(/^\/(?:input|paste|codex-input)\s+([\s\S]+)$/i);
-  if (command?.[1]?.trim()) {
-    return command[1].trim();
+  const slashCommand = trimmed.match(/^\/(?:input|paste|codex-input)\s+([\s\S]+)$/i);
+  if (slashCommand?.[1]?.trim()) {
+    return slashCommand[1].trim();
   }
 
-  const natural = trimmed.match(/^(?:转到|转给|输入到|填入|粘贴到|发到)\s*codex(?:输入框)?[：:\s]+([\s\S]+)$/i);
-  if (natural?.[1]?.trim()) {
-    return natural[1].trim();
-  }
-
-  const helpMeInput = trimmed.match(/^帮我输(?!出)(?:入)?(?:到\s*codex(?:输入框)?)?(?:[，,：:\s]+|(?=\S))([\s\S]+)$/i);
-  if (helpMeInput?.[1]?.trim()) {
-    return helpMeInput[1].replace(/^[，,：:\s]+/, '').trim();
+  const explicitCommand = trimmed.match(/^(?:\u5e2e\u6211\u8f93\u5165|\u5e2e\u6211\u586b\u5165|\u8f93\u5165\u5230\s*codex|\u586b\u5165\s*codex|codex\s*\u8f93\u5165)[:\uff1a,\uff0c\s]+([\s\S]+)$/i);
+  if (explicitCommand?.[1]?.trim()) {
+    return explicitCommand[1].trim();
   }
 
   return undefined;
 }
 
 function isForegroundInputMetaQuestion(text: string): boolean {
-  return /^帮我输(?!出)(?:入)?(?:到\s*codex(?:输入框)?)?(?:这个)?功能/.test(text)
-    || /^帮我输(?!出)(?:入)?(?:到\s*codex(?:输入框)?)?.*(?:没问题|对吧|还在吗|怎么用|是什么|是否|能不能)/.test(text);
+  return /^(?:\u5e2e\u6211\u8f93\u5165|\u5e2e\u6211\u586b\u5165).*(?:\u529f\u80fd|\u600e\u4e48\u7528|\u662f\u4ec0\u4e48|\u5bf9\u5417|\u6709\u6ca1\u6709\u95ee\u9898|\u80fd\u4e0d\u80fd)/.test(text);
 }
 
 export async function handleForegroundCodexCommand(text: string): Promise<ForegroundCommandResult> {
@@ -45,13 +39,13 @@ export async function handleForegroundCodexCommand(text: string): Promise<Foregr
     return {
       handled: true,
       ok: true,
-      reply: '已填入',
+      reply: '\u5df2\u586b\u5165',
     };
   }
 
   return {
     handled: true,
     ok: false,
-    reply: `没有填入：${result.error || '前台窗口不是 Codex'}。请先点一下 Codex 输入框，再重试。`,
+    reply: `\u6ca1\u6709\u586b\u5165\uff1a${result.error || '\u524d\u53f0\u7a97\u53e3\u4e0d\u662f Codex'}\u3002\u8bf7\u5148\u70b9\u4e00\u4e0b Codex \u8f93\u5165\u6846\uff0c\u518d\u91cd\u8bd5\u3002`,
   };
 }

@@ -102,13 +102,10 @@ cd ~/.codex/skills/wechat-codex-code && npm run daemon -- status
   logs     查看运行日志
 
 微信端常用能力：
-  /help    显示帮助
-  /clear   清除当前会话，开始新对话
-  /status  查看当前会话状态
-  帮我输入  把内容填入前台 Codex 输入框
-  /prompt  设置系统提示词
-  /cwd     切换工作目录
-  /skills  查看已安装的 skill
+  直接发文字/语音/图片/文件给 Codex
+  直接说“把桌面那个 XXX 文件发我”来请求发送文件
+  “帮我输入 XXX”会把内容填入前台 Codex 输入框
+  /clear   隐藏控制：清除当前会话，开始新对话
 ```
 
 如果用户明确指定了操作（如"启动微信"、"停止微信服务"、"看看日志"等），跳过状态展示直接执行对应命令。

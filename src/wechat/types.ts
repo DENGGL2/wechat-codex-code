@@ -1,5 +1,5 @@
 // WeChat Work (企业微信) protocol type definitions
-// Extracted from the ClawBot WeChat plugin API
+// Protocol shape follows the WeChat bot API.
 
 // ── Enums ──────────────────────────────────────────────────────────────────
 
@@ -70,6 +70,9 @@ export interface MessageItem {
   voice_item?: VoiceItem;
   file_item?: FileItem;
   video_item?: VideoItem;
+  ref_msg?: {
+    message_item?: MessageItem;
+  };
 }
 
 // ── Weixin Message ──────────────────────────────────────────────────────────

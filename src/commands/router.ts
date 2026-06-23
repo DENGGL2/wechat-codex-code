@@ -1,6 +1,6 @@
 import type { Session } from '../session.js';
 import { logger } from '../logger.js';
-import { handleHelp, handleClear, handleCwd, handleModel, handleStatus, handleHistory, handleReset, handleCompact, handleUndo, handleVersion, handlePrompt, handleProvider, handleSend, handleUnknown } from './handlers.js';
+import { handleHelp, handleClear, handleUnknown } from './handlers.js';
 
 export interface CommandContext {
   accountId: string;
@@ -22,10 +22,8 @@ export interface CommandResult {
  * Parse and dispatch a slash command.
  *
  * Supported commands:
- *   /help     - Show help text with all available commands
+ *   /help     - Show help text
  *   /clear    - Clear the current session
- *   /model <name> - Update the session model
- *   /status   - Show current session info
  */
 export function routeCommand(ctx: CommandContext): CommandResult {
   const text = ctx.text.trim();
@@ -45,29 +43,6 @@ export function routeCommand(ctx: CommandContext): CommandResult {
       return handleHelp(args);
     case 'clear':
       return handleClear(ctx);
-    case 'reset':
-      return handleReset(ctx);
-    case 'cwd':
-      return handleCwd(ctx, args);
-    case 'model':
-      return handleModel(ctx, args);
-    case 'prompt':
-      return handlePrompt(ctx, args);
-    case 'provider':
-      return handleProvider(args);
-    case 'status':
-      return handleStatus(ctx);
-    case 'history':
-      return handleHistory(ctx, args);
-    case 'undo':
-      return handleUndo(ctx, args);
-    case 'compact':
-      return handleCompact(ctx);
-    case 'send':
-      return handleSend(ctx, args);
-    case 'version':
-    case 'v':
-      return handleVersion();
     default:
       return handleUnknown(cmd, args);
   }
