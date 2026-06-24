@@ -1,7 +1,7 @@
 # WeChat Codex Bridge
 
 <p align="center">
-  <strong>Chat with Codex from WeChat, including text, voice, images, files, foreground input, and completion notifications</strong>
+  <strong>用微信和本机 Codex 对话：文字、语音、图片、文件、截图、前台输入和完成通知</strong>
 </p>
 
 <p align="center">
@@ -9,33 +9,52 @@
   <a href="README_en.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=flat-square" alt="English"></a>
 </p>
 
-扫码绑定微信后，你可以通过微信把文字、语音、图片、文件转给本机 Codex 处理，结果会回到微信。也支持把微信口述内容填入当前前台 Codex 输入框、任务完成后推送简要结果，以及在高风险操作前等待确认。
+扫码绑定微信后，你可以把文字、语音、图片和文件发给本机 Codex 处理，结果再回到微信。它也支持把微信口述内容填入当前前台 Codex 输入框、在任务完成后推送简要结果、按需截图当前窗口或实际产物。
 
-## 核心亮点
+## 核心能力
+
 | | |
 |---|---|
-| **扫码即用** | 不用注册账号，不用部署服务器。微信扫码绑定，一分钟搞定。数据全在本地，隐私有保障。 |
-| **消息不刷屏** | 只推送核心信息——进度、结果、关键决策。工具调用、中间过程等噪音自动过滤，阅读体验清爽。 |
-| **"对方正在输入中..."** | Codex 在处理任务时，微信顶部会显示输入状态，随时感知它在干活。 |
-| **电脑手机体验一致** | 手机端和电脑端 Codex 尽量复用同一套任务上下文和反馈规则。不是两个割裂的 AI。 |
-| **文件双向收发** | 发图片、Word、PDF 给 Codex 分析；Codex 生成的文件也会直接推送到微信，不用回到电脑前查看。 |
-| **超时安抚** | 任务超过 5 分钟没响应？它会自动发一条消息告诉你还在干，不会让你对着空白聊天框干等。 |
+| **扫码即用** | 不需要部署服务器。微信扫码绑定后即可把消息转给本机 Codex。 |
+| **文字/语音/图片/文件** | 支持从微信发送常见消息类型给 Codex，并把 Codex 生成的文件或图片推回微信。 |
+| **前台输入** | 说“帮我输入 XXX”或使用 `/input XXX`，会把内容填入当前前台 Codex 输入框，不会自动发送。 |
+| **进度与完成通知** | 任务完成后可向微信推送简要结果；电脑锁屏时也能收到完成摘要。 |
+| **截图回传** | 支持截图当前 Codex 会话窗口，也支持让 Codex 查找最近生成的 html、md、图片、pdf 或本地页面并截图。 |
+| **少刷屏** | 长任务尽量合并反馈，只推送关键进度、结果、文件和需要确认的风险操作。 |
 
-## 快速安装
+## 微信常用命令
 
-**方式一：skills CLI（推荐）**
+| 命令 | 作用 |
+|---|---|
+| `/查询当前`、`/当前查询`、`/check` | 查询当前或最近 Codex 会话进度。默认回复一个最相关会话；如果多个相关会话都完成，会合并在一条消息里说明。 |
+| `/截图当前`、`/screenshot` | 截取当前可见 Codex 会话窗口并发回微信。 |
+| `/截图实际`、`/capture` | 查找最近生成或提到的实际可预览对象并截图；找不到时会明确说明没有可截图对象。 |
+| `/结束`、`/stop` | 停止当前任务、清空排队消息，让旧结果失效。 |
+| `/clear` | 清除当前桥接会话上下文。 |
+
+自然语言也可以直接说，例如：
+
+```text
+帮我输入这段需求到当前 Codex 输入框
+最近的项目进度怎么样了
+截图你当前会话窗口发我
+把桌面那个报告文件发我
+```
+
+## 安装
+
+**方式一：skills CLI**
 
 ```bash
 npx skills add DENGGL2/wechat-codex-code
 ```
 
-首次在对话中触发时，会自动克隆项目源码并安装依赖。
-
-**方式二：手动克隆**
+**方式二：手动安装**
 
 ```bash
 git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.codex/skills/wechat-codex-code
-cd ~/.codex/skills/wechat-codex-code && npm install
+cd ~/.codex/skills/wechat-codex-code
+npm install
 ```
 
 ## 快速开始
@@ -47,56 +66,43 @@ cd ~/.codex/skills/wechat-codex-code
 npm run setup
 ```
 
-弹出二维码，用微信扫码。
+按提示用微信扫码。
 
-### 2. 启动服务
+### 2. 启动桥接
 
 ```bash
 npm run daemon -- start
 ```
 
-服务启动后会监听微信消息，并把任务转给本机 Codex 处理。
+启动后，桥接会监听微信消息，并把任务交给本机 Codex 处理。
 
-### 3. 开始聊天
+### 3. 开始使用
 
-打开微信，给你新出现的那个"好友"发条消息试试。
+打开微信，给绑定后的 bot 发送文字、语音、图片或文件即可。
 
-## Codex 功能
-
-这个版本会把微信消息交给本机 Codex 处理。你可以在微信里发文字、语音、图片和文件，也可以让它把内容填入当前前台 Codex 输入框：
+## 工作方式
 
 ```text
-帮我输入这里是要填入 Codex 输入框的内容
-/input 这里是要填入 Codex 输入框的内容
+WeChat -> ilink Bot API -> local Node.js bridge -> Codex CLI / Codex desktop
 ```
 
-该功能只填入，不会自动发送。Windows 下还会在电脑锁屏时把 Codex 任务完成摘要推送到微信。
-
-## 工作原理
-
-```
-微信（手机） ←→ ilink Bot API ←→ Node.js 守护进程 ←→ Codex CLI / Codex 桌面端（本地）
-```
-
-守护进程通过长轮询监听微信消息，转发给本机 Codex 处理，回复实时流式推送回微信。全程跑在你自己电脑上。
+桥接进程通过长轮询接收微信消息，交给本机 Codex 处理，再把结果、截图或文件发回微信。数据默认保存在本机。
 
 ## 前置条件
 
 - Node.js >= 18
 - Windows、macOS 或 Linux
 - 个人微信账号
-- 已安装 Codex CLI 或 Codex 桌面端，并完成登录/认证
+- 已安装并登录 Codex CLI 或 Codex 桌面端
 
 ## 数据目录
 
-所有数据存储在 `~/.wechat-codex-code/`：
-
-```
+```text
 ~/.wechat-codex-code/
 ├── accounts/       # 微信账号凭证
 ├── config.json     # 全局配置
 ├── sessions/       # 会话数据
-└── logs/           # 运行日志（每日轮转，保留 30 天）
+└── logs/           # 运行日志
 ```
 
 ## License

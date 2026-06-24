@@ -1,46 +1,60 @@
 # WeChat Codex Bridge
 
 <p align="center">
-  <strong>Chat with Codex from WeChat, including text, voice, images, files, foreground input, and completion notifications</strong>
+  <strong>Chat with local Codex from WeChat: text, voice, images, files, screenshots, foreground input, and completion notifications</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/DENGGL2/wechat-codex-code/blob/codex-wechat-bridge/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
-  <a href="README.md"><img src="https://img.shields.io/badge/Lang-中文-lightgrey?style=flat-square" alt="中文"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Lang-Chinese-lightgrey?style=flat-square" alt="Chinese"></a>
 </p>
 
-Scan a QR code to bind your WeChat, then send text, voice, images, and files to Codex running on your computer. Replies stream back to WeChat, and the bridge also supports foreground Codex input, completion notifications, and confirmation before higher-risk operations.
-
----
+Bind WeChat with a QR code, then send text, voice, images, and files to Codex running on your computer. Results are sent back to WeChat. The bridge also supports filling the foreground Codex input box, pushing concise completion summaries, and sending screenshots of the current Codex window or generated artifacts.
 
 ## Highlights
 
 | | |
 |---|---|
-| **Scan and go** | No account signup, no server deployment. Scan a QR code and you're done in a minute. All data stays on your machine. |
-| **Clean messages** | Only key info gets pushed — progress, results, key decisions. Tool calls and intermediate noise are filtered out automatically. |
-| **"Typing..." indicator** | WeChat shows a typing indicator while Codex is working, so you always know it's on it. |
-| **Consistent experience** | Mobile and desktop Codex share the same task context and feedback rules as much as possible. Not two disconnected AIs. |
-| **Two-way files** | Send images, Word docs, PDFs for Codex to analyze. Files Codex generates get pushed directly to WeChat — no need to go back to your computer. |
-| **Timeout reassurance** | Task taking longer than 5 minutes? You'll get an automatic message letting you know it's still working. |
+| **QR-code setup** | No server deployment required. Bind WeChat and forward messages to local Codex. |
+| **Text, voice, images, files** | Send common WeChat message types to Codex and receive generated files or images back in WeChat. |
+| **Foreground input** | Say "帮我输入 XXX" or use `/input XXX` to fill the foreground Codex input box without auto-sending. |
+| **Progress and completion notifications** | Push concise task results back to WeChat, including when the PC is locked on Windows. |
+| **Screenshot delivery** | Capture the current Codex conversation window or ask Codex to find and screenshot a recent html, md, image, pdf, or local page artifact. |
+| **Less message spam** | Long-running work is summarized into key progress, results, files, and confirmation requests. |
 
----
+## WeChat Commands
+
+| Command | Purpose |
+|---|---|
+| `/查询当前`, `/当前查询`, `/check` | Check the current or latest Codex conversation progress. If multiple related conversations are completed, they are summarized in one WeChat message. |
+| `/截图当前`, `/screenshot` | Capture the currently visible Codex conversation window and send the image to WeChat. |
+| `/截图实际`, `/capture` | Find a recent previewable artifact and screenshot it. If no artifact exists, the bridge says so instead of capturing the wrong window. |
+| `/结束`, `/stop` | Stop the current task, clear queued messages, and invalidate old results. |
+| `/clear` | Clear the current bridge conversation context. |
+
+Natural language also works:
+
+```text
+帮我输入 this text into the current Codex input box
+最近的项目进度怎么样了
+截图你当前会话窗口发我
+把桌面那个报告文件发我
+```
 
 ## Install
 
-**Option 1: skills CLI (recommended)**
+**Option 1: skills CLI**
 
 ```bash
 npx skills add DENGGL2/wechat-codex-code
 ```
 
-The first time you trigger the skill, it will automatically clone the source and install dependencies.
-
-**Option 2: Manual clone**
+**Option 2: manual install**
 
 ```bash
 git clone https://github.com/DENGGL2/wechat-codex-code.git ~/.codex/skills/wechat-codex-code
-cd ~/.codex/skills/wechat-codex-code && npm install
+cd ~/.codex/skills/wechat-codex-code
+npm install
 ```
 
 ## Quick Start
@@ -52,42 +66,27 @@ cd ~/.codex/skills/wechat-codex-code
 npm run setup
 ```
 
-A QR code will pop up — scan it with WeChat.
+Scan the QR code with WeChat.
 
-### 2. Start the service
+### 2. Start the bridge
 
 ```bash
 npm run daemon -- start
 ```
 
-Once started, the service listens for WeChat messages and forwards tasks to local Codex.
+The bridge listens for WeChat messages and forwards tasks to local Codex.
 
 ### 3. Start chatting
 
-Open WeChat and send a message to your new "friend".
-
-## Codex Support
-
-This version forwards WeChat messages to local Codex. You can send text, voice, images, and files, or dictate/type content in WeChat and paste it into the foreground Codex input box:
-
-```text
-帮我输入 text to paste into Codex
-/input text to paste into Codex
-```
-
-This only fills the input box and does not auto-send. On Windows, the bridge can also push a concise Codex completion summary to WeChat when the PC is locked.
-
----
+Open WeChat and send text, voice, images, or files to the bound bot.
 
 ## How It Works
 
-```
-WeChat (phone) ←→ ilink Bot API ←→ Node.js daemon ←→ Codex CLI / Codex desktop (local)
+```text
+WeChat -> ilink Bot API -> local Node.js bridge -> Codex CLI / Codex desktop
 ```
 
-The daemon long-polls WeChat for new messages, forwards them to local Codex, and streams replies back to WeChat. Everything runs on your own machine.
-
----
+The bridge long-polls WeChat for messages, forwards them to local Codex, and sends replies, screenshots, or files back to WeChat. Data is stored locally by default.
 
 ## Prerequisites
 
@@ -98,14 +97,12 @@ The daemon long-polls WeChat for new messages, forwards them to local Codex, and
 
 ## Data Directory
 
-All data is stored in `~/.wechat-codex-code/`:
-
-```
+```text
 ~/.wechat-codex-code/
 ├── accounts/       # WeChat account credentials
 ├── config.json     # Global config
 ├── sessions/       # Session data
-└── logs/           # Rotating logs (daily, 30-day retention)
+└── logs/           # Runtime logs
 ```
 
 ## License

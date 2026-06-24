@@ -1,4 +1,5 @@
 import { extractMarkedFilePathsFromText, polishWechatFinalReply, userAskedForImagePreview } from './main.js';
+import { buildCaptureActualPrompt, buildQueryCurrentPrompt, isCaptureActualCommand, isCaptureCurrentCommand, isHardEndCommand, isQueryCurrentCommand } from './main.js';
 import { inspectPngScreenshot } from './screenshot-quality.js';
 import { isForbiddenWechatOutput } from './wechat-policy.js';
 
@@ -98,6 +99,16 @@ export function runAcceptanceScenarios(): AcceptanceScenarioResult[] {
     '若没有可用预览能力，不得假装截图完成，应直接推送原文件并简短说明当前只能发文件。',
   ].join('\n');
 
+  const queryCurrentPrompt = buildQueryCurrentPrompt('/查询当前');
+  const quoteFollowupActual = [
+    '用户引用了以下内容，当前问题默认是在追问/要求处理这个被引用对象：',
+    '[引用了文件：需求说明.docx。当前问题应按对这个文件的追问理解]',
+    '',
+    '用户当前问题：',
+    '按这个调整一下',
+  ].join('\n');
+  const captureActualPrompt = buildCaptureActualPrompt('/截图实际');
+
   return [
     pass(
       'A1',
@@ -193,6 +204,62 @@ export function runAcceptanceScenarios(): AcceptanceScenarioResult[] {
         [/\.docx\/\.pptx\/\.xlsx 原文件/.test(officeScreenshotActual), '没有确认可发送 Office 原文件'],
         [/Office\/LibreOffice\/浏览器预览能力/.test(officeScreenshotActual), '没有定义可截图的前置条件'],
         [/不得假装截图完成/.test(officeScreenshotActual), '没有禁止无预览时假装截图完成'],
+      ],
+    ),
+    pass(
+      'A11',
+      '/结束',
+      '应识别为硬停止命令，停止当前任务、清空队列并让旧结果失效。',
+      '已结束。',
+      [
+        [isHardEndCommand('/结束'), '没有识别 /结束'],
+        [isHardEndCommand('/stop'), '没有保留 /stop'],
+      ],
+    ),
+    pass(
+      'A12',
+      '/查询当前',
+      '应强制查询当前最新 Codex 会话内容与进度情况，不回答微信发送状态。',
+      queryCurrentPrompt,
+      [
+        [isQueryCurrentCommand('/查询当前'), '没有识别 /查询当前'],
+        [/检索当前最新 Codex 会话内容与进度情况/.test(queryCurrentPrompt), '查询 prompt 没有明确检索当前会话进度'],
+        [/不要回答微信发送状态/.test(queryCurrentPrompt), '查询 prompt 没有禁止回答微信发送状态'],
+        [!/用户补充条件/.test(queryCurrentPrompt), '纯 /查询当前 不应要求用户提供具体会话名'],
+      ],
+    ),
+    pass(
+      'A13',
+      '引用文件“需求说明.docx”后问：按这个调整一下',
+      '应把被引用对象和当前问题一起交给 Codex，不能当孤立消息理解。',
+      quoteFollowupActual,
+      [
+        [/默认是在追问\/要求处理这个被引用对象/.test(quoteFollowupActual), '没有明确引用追问语义'],
+        [/需求说明\.docx/.test(quoteFollowupActual), '没有保留引用文件名'],
+        [/按这个调整一下/.test(quoteFollowupActual), '没有保留当前问题'],
+      ],
+    ),
+    pass(
+      'A14',
+      '/截图当前',
+      '应识别为硬命令，截取当前 Codex 会话窗口并推送图片。',
+      '待推送文件：Codex 当前窗口截图 PNG',
+      [
+        [isCaptureCurrentCommand('/截图当前'), '没有识别 /截图当前'],
+        [!isCaptureCurrentCommand('截图当前'), '无斜杠自然语言不应被硬命令误伤'],
+      ],
+    ),
+    pass(
+      'A15',
+      '/截图实际',
+      '应让 Codex 查找最近生成或提到的实际可预览对象并截图；没有对象时明确说没有，不能截当前窗口凑数。',
+      captureActualPrompt,
+      [
+        [isCaptureActualCommand('/截图实际'), '没有识别 /截图实际'],
+        [!isCaptureActualCommand('截图实际'), '无斜杠自然语言不应被硬命令误伤'],
+        [/最近生成或提到的实际可预览对象/.test(captureActualPrompt), '没有要求查找实际对象'],
+        [/没有可截图的实际对象/.test(captureActualPrompt), '没有定义找不到对象时的回复'],
+        [/不要截当前窗口/.test(captureActualPrompt), '没有禁止截当前窗口凑数'],
       ],
     ),
   ];

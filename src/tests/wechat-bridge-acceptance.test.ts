@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 
 import {
   buildBridgeRuntimeContext,
+  buildCaptureActualPrompt,
+  buildQueryCurrentPrompt,
   extractMarkedFilePathsFromText,
+  isCaptureActualCommand,
+  isCaptureCurrentCommand,
+  isHardEndCommand,
+  isQueryCurrentCommand,
   polishWechatFinalReply,
   stripWechatSendMarkerLines,
   summarizeCompletionForWechat,
@@ -94,6 +100,51 @@ test('runtime rules are injected with desktop-progress and screenshot target con
   assert.match(rules, /最近对话/);
   assert.match(rules, /目录或 URL/);
   assert.match(rules, /不要定时发送/);
+});
+
+test('Chinese hard commands are recognized without replacing natural language handling', () => {
+  assert.equal(isHardEndCommand('/结束'), true);
+  assert.equal(isHardEndCommand('/stop'), true);
+  assert.equal(isHardEndCommand('请你结束一下'), false);
+  assert.equal(isQueryCurrentCommand('/查询当前'), true);
+  assert.equal(isQueryCurrentCommand('查询当前'), false);
+  assert.equal(isCaptureCurrentCommand('/截图当前'), true);
+  assert.equal(isCaptureCurrentCommand('截图当前'), false);
+  assert.equal(isCaptureActualCommand('/截图实际'), true);
+  assert.equal(isCaptureActualCommand('截图实际'), false);
+
+  const prompt = buildQueryCurrentPrompt('/查询当前');
+  assert.match(prompt, /检索当前最新 Codex 会话内容与进度情况/);
+  assert.match(prompt, /不要回答微信发送状态/);
+  assert.doesNotMatch(prompt, /用户补充条件/);
+
+  const capturePrompt = buildCaptureActualPrompt('/截图实际');
+  assert.match(capturePrompt, /最近生成或提到的实际可预览对象/);
+  assert.match(capturePrompt, /没有可截图的实际对象/);
+});
+
+test('query-current command accepts the current-query alias and stays brief by default', () => {
+  assert.equal(isQueryCurrentCommand('/\u67e5\u8be2\u5f53\u524d'), true);
+  assert.equal(isQueryCurrentCommand('/\u5f53\u524d\u67e5\u8be2'), true);
+  assert.equal(isQueryCurrentCommand('/check'), true);
+  assert.equal(isQueryCurrentCommand('/CHECK'), true);
+  assert.equal(isQueryCurrentCommand('\u5f53\u524d\u67e5\u8be2'), false);
+  assert.equal(isCaptureCurrentCommand('/screenshot'), true);
+  assert.equal(isCaptureActualCommand('/capture'), true);
+
+  const prompt = buildQueryCurrentPrompt('/\u5f53\u524d\u67e5\u8be2');
+  const checkPrompt = buildQueryCurrentPrompt('/check messenger');
+  assert.match(prompt, /\u4e00\u4e2a\u6700\u76f8\u5173\u7684\u4f1a\u8bdd/);
+  assert.match(prompt, /\u4e00\u53e5\u8bdd\u8bf4\u660e/);
+  assert.match(prompt, /\u591a\u4e2a\u4f1a\u8bdd\u90fd\u5df2\u5b8c\u6210/);
+  assert.match(prompt, /\u540c\u4e00\u6761\u5fae\u4fe1\u91cc\u4e00\u8d77\u544a\u8bc9/);
+  assert.match(prompt, /\u4e0d\u8981\u56de\u7b54\u5fae\u4fe1\u53d1\u9001\u72b6\u6001/);
+  assert.match(prompt, /\u4e0d\u8981\u4ece\u591a\u4e2a\u65e0\u5173\u5019\u9009\u91cc\u968f\u673a\u6311\u4e00\u6761\u5f53\u7ed3\u8bba/);
+  assert.doesNotMatch(prompt, /\u7528\u6237\u8865\u5145\u6761\u4ef6/);
+  assert.match(checkPrompt, /\u7528\u6237\u8865\u5145\u6761\u4ef6\uff1amessenger/);
+
+  const capturePrompt = buildCaptureActualPrompt('/capture latest html');
+  assert.match(capturePrompt, /\u7528\u6237\u8865\u5145\u6761\u4ef6\uff1alatest html/);
 });
 
 test('positive acceptance scenarios return concrete user-facing results', () => {

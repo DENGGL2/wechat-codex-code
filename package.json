@@ -1,7 +1,7 @@
 {
   "name": "wechat-codex-code",
   "version": "1.0.0",
-  "description": "Chat with Codex from WeChat - a local bridge for text, voice, images, files, foreground input, and completion notifications",
+  "description": "Chat with local Codex from WeChat: text, voice, images, files, screenshots, foreground input, and completion notifications",
   "type": "module",
   "scripts": {
     "build": "tsc",

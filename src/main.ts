@@ -97,6 +97,50 @@ export function userAskedForImagePreview(text: string): boolean {
   return /(?:\u622a\u56fe|\u622a\u4e2a\u56fe|\u622a\u5f20\u56fe|\u56fe\u7247|\u9884\u89c8|效果图).*(?:\u7ed9\u6211|\u53d1\u6211|\u770b\u770b|\u770b\u4e0b|\u770b\u4e00\u4e0b)|(?:\u7ed9\u6211|\u53d1\u6211).*(?:\u622a\u56fe|\u622a\u4e2a\u56fe|\u622a\u5f20\u56fe|\u56fe\u7247|\u9884\u89c8|效果图)|(?:\u8dd1\u7684\u7ed3\u679c|\u6548\u679c).*(?:\u600e\u4e48\u6837).*(?:\u622a.*\u56fe|\u56fe)/.test(text);
 }
 
+export function isHardEndCommand(text: string): boolean {
+  return /^\/(?:stop|\u7ed3\u675f)(?:\s|$)/i.test(text.trim());
+}
+
+export function isHardClearCommand(text: string): boolean {
+  return /^\/clear(?:\s|$)/i.test(text.trim());
+}
+
+export function isQueryCurrentCommand(text: string): boolean {
+  return /^\/(?:\u67e5\u8be2\u5f53\u524d|\u5f53\u524d\u67e5\u8be2|check)(?:\s|$)/i.test(text.trim());
+}
+
+export function isCaptureCurrentCommand(text: string): boolean {
+  return /^\/(?:\u622a\u56fe\u5f53\u524d|screenshot)(?:\s|$)/i.test(text.trim());
+}
+
+export function isCaptureActualCommand(text: string): boolean {
+  return /^\/(?:\u622a\u56fe\u5b9e\u9645|capture)(?:\s|$)/i.test(text.trim());
+}
+
+export function buildQueryCurrentPrompt(originalText: string): string {
+  const extra = originalText.trim().replace(/^\/(?:\u67e5\u8be2\u5f53\u524d|\u5f53\u524d\u67e5\u8be2|check)\s*/i, '').trim();
+  return [
+    '\u7528\u6237\u4f7f\u7528\u4e86\u786c\u547d\u4ee4 /\u67e5\u8be2\u5f53\u524d\u3002',
+    '\u8bf7\u68c0\u7d22\u5f53\u524d\u6700\u65b0 Codex \u4f1a\u8bdd\u5185\u5bb9\u4e0e\u8fdb\u5ea6\u60c5\u51b5\uff0c\u9ed8\u8ba4\u53ea\u56de\u590d\u4e00\u4e2a\u6700\u76f8\u5173\u7684\u4f1a\u8bdd\uff1a\u201cXXX \u5bf9\u8bdd\uff1a\u4e00\u53e5\u8bdd\u8bf4\u660e\u5f53\u524d\u5185\u5bb9/\u72b6\u6001\u201d\u3002',
+    '\u5982\u679c\u68c0\u7d22\u5230\u591a\u4e2a\u4f1a\u8bdd\u90fd\u5df2\u5b8c\u6210\u4e14\u90fd\u4e0e\u7528\u6237\u5f53\u524d\u95ee\u6cd5\u76f8\u5173\uff0c\u8bf7\u5728\u540c\u4e00\u6761\u5fae\u4fe1\u91cc\u4e00\u8d77\u544a\u8bc9\u7528\u6237\uff0c\u6bcf\u4e2a\u4f1a\u8bdd\u53ea\u5199\u4f1a\u8bdd\u540d+\u4e00\u53e5\u8bdd\u7ed3\u679c\uff0c\u4e0d\u8981\u5206\u591a\u6761\u5237\u5c4f\u3002',
+    '\u53ea\u6709\u7528\u6237\u660e\u786e\u8bf4\u201c\u8be6\u7ec6\u201d\u3001\u201c\u5c55\u5f00\u201d\u3001\u201c\u5177\u4f53\u8fdb\u5ea6\u201d\u65f6\uff0c\u624d\u5217\u51fa\u76ee\u5f55\u3001\u6700\u8fd1\u66f4\u65b0\u65f6\u95f4\u3001\u5b8c\u6210\u6b65\u9aa4\u3001\u4ea7\u7269\u6216\u5f85\u5904\u7406\u98ce\u9669\u3002',
+    '\u5982\u679c\u65e0\u6cd5\u786e\u5b9a\u552f\u4e00\u5f53\u524d/\u6700\u65b0\u4f1a\u8bdd\uff0c\u624d\u5217\u51fa 2-3 \u4e2a\u5019\u9009\uff0c\u6bcf\u4e2a\u5019\u9009\u4e00\u53e5\u8bdd\u3002',
+    '\u4e0d\u8981\u56de\u7b54\u5fae\u4fe1\u53d1\u9001\u72b6\u6001\uff0c\u4e0d\u8981\u53ea\u8bf4\u201c\u5df2\u67e5\u8be2\u201d\uff0c\u4e0d\u8981\u4ece\u591a\u4e2a\u65e0\u5173\u5019\u9009\u91cc\u968f\u673a\u6311\u4e00\u6761\u5f53\u7ed3\u8bba\u3002',
+    extra ? `\u7528\u6237\u8865\u5145\u6761\u4ef6\uff1a${extra}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+export function buildCaptureActualPrompt(originalText: string): string {
+  const extra = originalText.trim().replace(/^\/(?:\u622a\u56fe\u5b9e\u9645|capture)\s*/i, '').trim();
+  return [
+    '\u7528\u6237\u4f7f\u7528\u4e86\u786c\u547d\u4ee4 /\u622a\u56fe\u5b9e\u9645\u3002',
+    '\u8bf7\u68c0\u7d22\u5f53\u524d/\u6700\u8fd1 Codex \u4f1a\u8bdd\u6216\u5de5\u4f5c\u76ee\u5f55\u91cc\u6700\u8fd1\u751f\u6210\u6216\u63d0\u5230\u7684\u5b9e\u9645\u53ef\u9884\u89c8\u5bf9\u8c61\uff0c\u4f8b\u5982 html\u3001md\u3001png/jpg\u3001pdf\uff0c\u6216\u6709\u660e\u786e\u672c\u5730 URL \u7684\u9879\u76ee\u9875\u9762\u3002',
+    '\u5982\u679c\u627e\u5230\u552f\u4e00\u660e\u786e\u5bf9\u8c61\uff0c\u8bf7\u6253\u5f00/\u6e32\u67d3\u540e\u622a\u56fe\uff0c\u5e76\u5355\u72ec\u8f93\u51fa\u4e00\u884c\u201c\u5fae\u4fe1\u53d1\u9001\uff1a\u7edd\u5bf9\u8def\u5f84\u201d\u89e6\u53d1\u56fe\u7247\u63a8\u9001\u3002',
+    '\u5982\u679c\u6ca1\u6709\u627e\u5230\u53ef\u622a\u56fe\u7684\u5b9e\u9645\u5bf9\u8c61\uff0c\u4e0d\u8981\u622a\u5f53\u524d\u7a97\u53e3\u3001\u684c\u9762\u6216\u5176\u4ed6\u5e94\u7528\u51d1\u6570\uff0c\u76f4\u63a5\u56de\u590d\u201c\u6ca1\u6709\u53ef\u622a\u56fe\u7684\u5b9e\u9645\u5bf9\u8c61\u3002\u201d',
+    extra ? `\u7528\u6237\u8865\u5145\u6761\u4ef6\uff1a${extra}` : '',
+  ].filter(Boolean).join('\n');
+}
+
 /** Split text into blocks at paragraph boundaries (double newlines). */
 function parseBlocks(text: string): string[] {
   return text.split(/\n\n+/).filter(block => block.length > 0);
@@ -349,14 +393,49 @@ async function runDaemon(): Promise<void> {
     if (msg.message_type !== MessageType.USER || !msg.item_list) return false;
     const text = extractTextFromItems(msg.item_list);
     const trimmed = text.trim();
-    if (!trimmed.startsWith('/stop') && !trimmed.startsWith('/clear')) {
+    if (!isHardEndCommand(trimmed) && !isHardClearCommand(trimmed) && !isCaptureCurrentCommand(trimmed)) {
       return false;
     }
 
     const toUserId = msg.from_user_id!;
     const contextToken = msg.context_token ?? '';
 
-    if (trimmed.startsWith('/stop')) {
+    if (isCaptureCurrentCommand(trimmed)) {
+      const outPath = join(DATA_DIR, `codex-window-${Date.now()}.png`);
+      const scriptPath = join(process.cwd(), 'scripts', 'capture-codex-window.ps1');
+      const result = spawnSync('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        scriptPath,
+        '-OutputPath',
+        outPath,
+      ], { encoding: 'utf-8' });
+      if (result.status === 0) {
+        await sender.sendFile(toUserId, contextToken, outPath).catch(async () => {
+          await sender.sendText(toUserId, contextToken, '\u622a\u56fe\u5df2\u751f\u6210\uff0c\u4f46\u53d1\u9001\u5931\u8d25\u3002').catch(() => {});
+        });
+      } else {
+        await sender.sendText(toUserId, contextToken, '\u6ca1\u6709\u622a\u5230\u5f53\u524d Codex \u7a97\u53e3\u3002').catch(() => {});
+      }
+      return true;
+    }
+
+    if (trimmed.startsWith('/\u7ed3\u675f')) {
+      const ctrl = activeControllers.get(account!.accountId);
+      if (ctrl) {
+        ctrl.abort();
+        activeControllers.delete(account!.accountId);
+      }
+      messageQueue.length = 0;
+      const newSession = sessionStore.clear(account!.accountId, session);
+      Object.assign(session, newSession);
+      await sender.sendText(toUserId, contextToken, '\u5df2\u7ed3\u675f\u3002').catch(() => {});
+      return true;
+    }
+
+    if (isHardEndCommand(trimmed)) {
       if (session.state !== 'processing') {
         await sender.sendText(toUserId, contextToken, '没有正在处理的任务。').catch(() => {});
         return true;
@@ -374,7 +453,7 @@ async function runDaemon(): Promise<void> {
       return true;
     }
 
-    if (trimmed.startsWith('/clear')) {
+    if (isHardClearCommand(trimmed)) {
       const ctrl = activeControllers.get(account!.accountId);
       if (ctrl) {
         ctrl.abort();
@@ -449,7 +528,12 @@ async function handleMessage(
 
   // Extract text from items
   const currentUserText = extractCurrentTextFromItems(msg.item_list);
-  const userText = extractTextFromItems(msg.item_list);
+  const extractedUserText = extractTextFromItems(msg.item_list);
+  const userText = isQueryCurrentCommand(currentUserText)
+    ? buildQueryCurrentPrompt(currentUserText)
+    : isCaptureActualCommand(currentUserText)
+      ? buildCaptureActualPrompt(currentUserText)
+    : extractedUserText;
   const imageItem = extractFirstImageUrl(msg.item_list);
   const fileItem = extractFirstFileItem(msg.item_list);
 
