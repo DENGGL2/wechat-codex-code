@@ -32,6 +32,7 @@ export interface Session {
   workingDirectory: string;
   model?: string;
   state: SessionState;
+  generation?: number;
   chatHistory: ChatMessage[];
   maxHistoryLength?: number;
   lastCompletionContext?: CompletionContext;
@@ -84,6 +85,7 @@ export function createSessionStore() {
       workingDirectory: currentSession?.workingDirectory ?? DEFAULT_WORKING_DIR,
       model: currentSession?.model,
       state: 'idle',
+      generation: (currentSession?.generation ?? 0) + 1,
       chatHistory: [],
       maxHistoryLength: currentSession?.maxHistoryLength || DEFAULT_MAX_HISTORY,
       lastCompletionContext: undefined,

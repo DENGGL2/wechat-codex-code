@@ -22,6 +22,7 @@ import { loadConfig, saveConfig } from './config.js';
 import { logger } from './logger.js';
 import { DATA_DIR } from './constants.js';
 import { MessageType, type MessageItem, type WeixinMessage } from './wechat/types.js';
+import { buildWechatRuntimeRules, stripInternalProcessText } from './wechat-policy.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,7 +63,7 @@ function isWechatSendMarkerLine(line: string): boolean {
   return /^\s*(?:微信发送|发送文件|send-file|WECHAT_SEND_FILE)\s*[:：]/i.test(line);
 }
 
-function stripWechatSendMarkerLines(text: string): string {
+export function stripWechatSendMarkerLines(text: string): string {
   return text
     .split(/\r?\n/)
     .filter(line => !isExplicitFileSendMarkerLine(line))
@@ -70,7 +71,7 @@ function stripWechatSendMarkerLines(text: string): string {
     .trim();
 }
 
-function extractMarkedFilePathsFromText(text: string, cwd: string): string[] {
+export function extractMarkedFilePathsFromText(text: string, cwd: string): string[] {
   const markedText = text
     .split(/\r?\n/)
     .filter(line => isExplicitFileSendMarkerLine(line))
@@ -82,8 +83,18 @@ function isExplicitFileSendMarkerLine(line: string): boolean {
   return /^\s*(?:\u5fae\u4fe1\u53d1\u9001|\u53d1\u9001\u6587\u4ef6|send-file|WECHAT_SEND_FILE)\s*[:\uff1a]/i.test(line);
 }
 
-function userAskedForImagePreview(text: string): boolean {
-  return /(?:\u622a\u56fe|\u56fe\u7247|\u9884\u89c8).*(?:\u7ed9\u6211|\u53d1\u6211|\u770b\u770b|\u770b\u4e0b|\u770b\u4e00\u4e0b)|(?:\u7ed9\u6211|\u53d1\u6211).*(?:\u622a\u56fe|\u56fe\u7247|\u9884\u89c8)/.test(text);
+export function userAskedForImagePreview(text: string): boolean {
+  const compact = text.replace(/\s+/g, '');
+  if (
+    compact.includes('截个图')
+    || compact.includes('截图')
+    || compact.includes('截张图')
+    || compact.includes('效果图')
+    || (compact.includes('跑的结果') && compact.includes('图'))
+  ) {
+    return true;
+  }
+  return /(?:\u622a\u56fe|\u622a\u4e2a\u56fe|\u622a\u5f20\u56fe|\u56fe\u7247|\u9884\u89c8|效果图).*(?:\u7ed9\u6211|\u53d1\u6211|\u770b\u770b|\u770b\u4e0b|\u770b\u4e00\u4e0b)|(?:\u7ed9\u6211|\u53d1\u6211).*(?:\u622a\u56fe|\u622a\u4e2a\u56fe|\u622a\u5f20\u56fe|\u56fe\u7247|\u9884\u89c8|效果图)|(?:\u8dd1\u7684\u7ed3\u679c|\u6548\u679c).*(?:\u600e\u4e48\u6837).*(?:\u622a.*\u56fe|\u56fe)/.test(text);
 }
 
 /** Split text into blocks at paragraph boundaries (double newlines). */
@@ -512,7 +523,7 @@ export function summarizeCompletionForWechat(text: string, maxLen = 180): string
   return cleaned.length <= maxLen ? cleaned : `${cleaned.slice(0, maxLen - 1)}…`;
 }
 
-function buildBridgeRuntimeContext(sender: ReturnType<typeof createSender>, session: Session): string | undefined {
+export function buildBridgeRuntimeContext(sender: Pick<ReturnType<typeof createSender>, 'getDeliveryStatusSummary'>, session: Session): string | undefined {
   const deliveryStatus = sender.getDeliveryStatusSummary?.();
   const lines: string[] = [
     '微信桥接运行状态，仅作为你理解用户问题的背景，不要主动复述，除非用户问到微信回复、发送失败、限流、图片/文件没收到、推送是否成功等相关问题：',
@@ -533,8 +544,8 @@ function isCodexOfflineError(error: string): boolean {
   return /(?:Failed to spawn codex|codex exited with code|ENOENT|EACCES|Access is denied|The system cannot find the file specified)/i.test(error);
 }
 
-function polishWechatFinalReply(text: string): string {
-  const cleaned = stripWechatSendMarkerLines(text).trim();
+export function polishWechatFinalReply(text: string): string {
+  const cleaned = stripWechatSendMarkerLines(stripInternalProcessText(text)).trim();
   if (!cleaned) return cleaned;
 
   const markers = [
@@ -581,6 +592,7 @@ async function sendToCodex(
   bridgeThreadIds: Set<string>,
   originalUserText = userText,
 ): Promise<void> {
+  const taskGeneration = session.generation ?? 0;
   // Set state to processing
   session.state = 'processing';
   sessionStore.save(account.accountId, session);
@@ -589,7 +601,8 @@ async function sendToCodex(
   const abortController = new AbortController();
   activeControllers.set(account.accountId, abortController);
 
-  // Flush timer for streaming text to WeChat during query (declared here for finally cleanup)
+  // Reserved for future streaming cleanup. We intentionally do not send periodic
+  // keepalive text to WeChat; typing indicator is the non-spam progress signal.
   let flushTimer: ReturnType<typeof setInterval> | undefined;
 
   // Record user message in chat history
@@ -668,34 +681,13 @@ async function sendToCodex(
       return flushChain;
     }
 
-    // Safety net: send keepalive if nothing was sent for 5 minutes
-    const SILENCE_WARNING_MS = 5 * 60 * 1000;
-    const SILENCE_MESSAGES = [
-      '我还在处理中，这个问题有点复杂，请再稍等一下',
-      '正在努力干活中，马上就有结果了，请稍等片刻',
-      '有点复杂正在处理，再给我一点时间，很快就好',
-      '快好了别着急，正在收尾阶段，马上给你回复',
-      '还在跑呢，任务量比较大，不过马上就能出结果了',
-      '任务比想象的复杂一些，再等等我，正在全力处理',
-      '正在处理中，进展顺利，再等一会儿就好',
-      '还没完不过已经快了，再给我一分钟就能搞定',
-      '我在认真思考这个问题，请再稍等一会儿',
-      '稍微有点棘手，不过已经快解决了，再等我一下',
-    ];
-    flushTimer = setInterval(() => {
-      if (Date.now() - lastSentTime > SILENCE_WARNING_MS) {
-        const msg = SILENCE_MESSAGES[Math.floor(Math.random() * SILENCE_MESSAGES.length)];
-        sender.sendText(fromUserId, contextToken, msg).catch(() => {});
-        lastSentTime = Date.now();
-      }
-    }, 2000);
-
     const queryOptions: QueryOptions = {
       prompt,
       cwd: (session.workingDirectory || config.workingDirectory).replace(/^~/, homedir()),
       resume: session.sdkSessionId,
       model: session.model,
       systemPrompt: [
+        buildWechatRuntimeRules(),
         '你正在通过微信与用户对话，不是在终端里。不要让用户去终端操作。如果用户需要文件，直接输出文件地址就行，会自动识别解析推送文件到用户的微信中。',
         '如果用户用自然语言要求你发送电脑里的文件，例如“把桌面那个 XXX 文件发我”，你需要自己根据语义查找候选文件。只有唯一确认要发送的文件时，单独输出一行“微信发送：绝对路径”；如果候选不唯一，先用简短中文向用户确认。不要要求用户提供精确路径。',
         '桥接层只负责转发微信消息、收发文件图片、填入前台 Codex 输入框和报告运行状态。用户的聊天、咨询、进度追问、引用追问、沟通偏好、后续修改要求，都由你按语义理解和处理。',
@@ -711,6 +703,14 @@ async function sendToCodex(
     // Stop periodic flush and send any remaining buffered content
     clearInterval(flushTimer);
     await flushText();
+
+    if ((session.generation ?? 0) !== taskGeneration) {
+      logger.info('Discarding stale Codex result after session generation changed', {
+        taskGeneration,
+        currentGeneration: session.generation ?? 0,
+      });
+      return;
+    }
 
     let completionSummary = '';
 
