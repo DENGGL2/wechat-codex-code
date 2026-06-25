@@ -134,14 +134,20 @@ test('query-current command accepts the current-query alias and stays brief by d
 
   const prompt = buildQueryCurrentPrompt('/\u5f53\u524d\u67e5\u8be2');
   const checkPrompt = buildQueryCurrentPrompt('/check messenger');
+  const checkTodayPrompt = buildQueryCurrentPrompt('/check \u4eca\u5929\u6709\u54ea\u4e9b\u5bf9\u8bdd');
+  const checkMeaningPrompt = buildQueryCurrentPrompt('/check \u8fd9\u4e2a\u662f\u4ec0\u4e48\u610f\u601d');
   assert.match(prompt, /\u4e00\u4e2a\u6700\u76f8\u5173\u7684\u4f1a\u8bdd/);
   assert.match(prompt, /\u4e00\u53e5\u8bdd\u8bf4\u660e/);
   assert.match(prompt, /\u591a\u4e2a\u4f1a\u8bdd\u90fd\u5df2\u5b8c\u6210/);
   assert.match(prompt, /\u540c\u4e00\u6761\u5fae\u4fe1\u91cc\u4e00\u8d77\u544a\u8bc9/);
+  assert.match(prompt, /\u4eca\u5929\u804a\u8fc7\u4ec0\u4e48/);
+  assert.match(prompt, /\u4ec0\u4e48\u5b9a\u4e49/);
   assert.match(prompt, /\u4e0d\u8981\u56de\u7b54\u5fae\u4fe1\u53d1\u9001\u72b6\u6001/);
   assert.match(prompt, /\u4e0d\u8981\u4ece\u591a\u4e2a\u65e0\u5173\u5019\u9009\u91cc\u968f\u673a\u6311\u4e00\u6761\u5f53\u7ed3\u8bba/);
   assert.doesNotMatch(prompt, /\u7528\u6237\u8865\u5145\u6761\u4ef6/);
   assert.match(checkPrompt, /\u7528\u6237\u8865\u5145\u6761\u4ef6\uff1amessenger/);
+  assert.match(checkTodayPrompt, /\u4eca\u5929\u6709\u54ea\u4e9b\u5bf9\u8bdd/);
+  assert.match(checkMeaningPrompt, /\u8fd9\u4e2a\u662f\u4ec0\u4e48\u610f\u601d/);
 
   const capturePrompt = buildCaptureActualPrompt('/capture latest html');
   assert.match(capturePrompt, /\u7528\u6237\u8865\u5145\u6761\u4ef6\uff1alatest html/);
